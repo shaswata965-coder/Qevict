@@ -17,6 +17,8 @@ import torch
 from torch import nn
 from typing import Optional, Tuple
 
+from transformers.models.llama.modeling_llama import rotate_half
+
 # DynamicCache compatibility (transformers >= 4.43)
 try:
     from transformers.cache_utils import DynamicLayer as _DynamicLayer
@@ -151,15 +153,23 @@ class STICKYLlamaAttention(nn.Module):
         # 4. Rotary Positional Embeddings
         position_embeddings = kwargs.get("position_embeddings", None)
         if position_embeddings is not None:
+            # HF >= 4.46: cos/sin are already sliced to [bsz, q_len, head_dim]
+            # (the model's shared rotary embedding pre-selects positions).
+            # We must NOT re-index with position_ids — just unsqueeze for the
+            # head dimension and apply directly.
             cos, sin = position_embeddings
+            # cos/sin shape: [bsz, q_len, head_dim] → unsqueeze head dim → [bsz, 1, q_len, head_dim]
+            cos = cos.unsqueeze(1)
+            sin = sin.unsqueeze(1)
+            query_states = (query_states * cos) + (rotate_half(query_states) * sin)
+            key_states = (key_states * cos) + (rotate_half(key_states) * sin)
         else:
             kv_seq_len = key_states.shape[-2] + phys_past_len
             cos, sin = self.rotary_emb(
                 value_states, seq_len=max(kv_seq_len, position_ids.max().item() + 1)
             )
-        
-        query_states = apply_rotary_pos_emb_single(query_states, cos, sin, position_ids)
-        key_states = apply_rotary_pos_emb_single(key_states, cos, sin, position_ids)
+            query_states = apply_rotary_pos_emb_single(query_states, cos, sin, position_ids)
+            key_states = apply_rotary_pos_emb_single(key_states, cos, sin, position_ids)
 
         # 5. KV Cache Concatenation
         if past_key_value is not None:
