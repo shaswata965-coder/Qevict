@@ -88,7 +88,7 @@ class TrackingManager(BaseTrackingManager):
             v_gids = active_g_ids[valid]
             v_phys = phys_idx[valid]
             if v_gids.numel() > 0:
-                scores_for_valid = importance_map[:, v_phys].T
+                scores_for_valid = importance_map[:, v_phys].T.float()
                 ledger[v_gids, 2 + num_heads:2 + 2 * num_heads] = scores_for_valid
                 self._global_score_history[v_gids, :] = scores_for_valid
 
@@ -113,7 +113,7 @@ class TrackingManager(BaseTrackingManager):
                 in_range = valid_phys < full_importance.shape[1]
                 if in_range.any():
                     ledger[valid_g[in_range], 2 + num_heads + head_idx] = \
-                        full_importance[head_idx, valid_phys[in_range]]
+                        full_importance[head_idx, valid_phys[in_range]].float()
 
     def record_decode(
         self,

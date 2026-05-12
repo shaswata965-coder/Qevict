@@ -26,8 +26,9 @@ QUANTIZATION_BIT_WIDTH = 4
 
 OMEGA = 8  # Window size for KV cache grouping
 SINK_TOKENS = 4  # Number of permanently protected sink tokens
-tracking_flag = 1
-dataset_tracker = 1
+tracking_flag = 0
+dataset_tracker = 0
+USE_FLASH_ATTENTION = 0
 
 S_IDX = 0     # Starting index for window tracking
 SEEDS = [42]
