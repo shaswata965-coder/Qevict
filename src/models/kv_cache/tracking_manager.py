@@ -39,6 +39,14 @@ class TrackingManager(BaseTrackingManager):
         )
         self.prefill_attention_matrix = None
 
+    def to(self, device: torch.device) -> TrackingManager:
+        self._global_token_counter = self._global_token_counter.to(device)
+        self._token_ledger = self._token_ledger.to(device)
+        self._global_score_history = self._global_score_history.to(device)
+        if self.prefill_attention_matrix is not None:
+            self.prefill_attention_matrix = self.prefill_attention_matrix.to(device)
+        return self
+
     @property
     def token_ledger(self) -> torch.Tensor:
         return self._token_ledger
@@ -211,6 +219,12 @@ class NoOpTrackingManager(BaseTrackingManager):
         # BUG-1 fix: coordinator exposes this via cache.global_score_history;
         # NoOp must define it so the property doesn't raise AttributeError.
         self._global_score_history = torch.zeros(1, 1, dtype=torch.float32, device=device)
+
+    def to(self, device: torch.device) -> NoOpTrackingManager:
+        self._global_token_counter = self._global_token_counter.to(device)
+        self._token_ledger = self._token_ledger.to(device)
+        self._global_score_history = self._global_score_history.to(device)
+        return self
 
     @property
     def token_ledger(self) -> torch.Tensor:

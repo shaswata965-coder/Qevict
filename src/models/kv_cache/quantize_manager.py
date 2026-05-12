@@ -49,6 +49,17 @@ class QuantizationManager(BaseQuantizationManager):
         self.q_retired_meta: Dict = {}
         self.rotary_emb: Optional[torch.nn.Module] = None
 
+    def to(self, device: torch.device) -> QuantizationManager:
+        if self._q_cache_k_quant is not None: self._q_cache_k_quant = self._q_cache_k_quant.to(device)
+        if self._q_cache_v_quant is not None: self._q_cache_v_quant = self._q_cache_v_quant.to(device)
+        if self._q_cache_k_scale is not None: self._q_cache_k_scale = self._q_cache_k_scale.to(device)
+        if self._q_cache_k_zp is not None: self._q_cache_k_zp = self._q_cache_k_zp.to(device)
+        if self._q_cache_v_scale is not None: self._q_cache_v_scale = self._q_cache_v_scale.to(device)
+        if self._q_cache_v_zp is not None: self._q_cache_v_zp = self._q_cache_v_zp.to(device)
+        if self._q_cache_ids is not None: self._q_cache_ids = self._q_cache_ids.to(device)
+        if self._q_cache_scores is not None: self._q_cache_scores = self._q_cache_scores.to(device)
+        return self
+
     def set_rotary_emb(self, rotary_emb: torch.nn.Module) -> None:
         self.rotary_emb = rotary_emb
 
@@ -320,6 +331,9 @@ class NoOpQuantizationManager(BaseQuantizationManager):
 
     def set_rotary_emb(self, rotary_emb: torch.nn.Module) -> None:
         pass
+
+    def to(self, device: torch.device) -> NoOpQuantizationManager:
+        return self
 
     def store_windows(self, k_data, v_data, window_ids, window_scores, q_phys) -> None:
         pass

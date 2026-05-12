@@ -98,6 +98,16 @@ class EvictionManager:
         self.prompt_boundary = [-1] * num_heads
         self._dynamic_local_count: int = 0
 
+    def to(self, device: torch.device) -> EvictionManager:
+        """Migrate all internal state tensors to the specified device."""
+        self.window_scores = self.window_scores.to(device)
+        self.running_attention_votes = self.running_attention_votes.to(device)
+        self.local_history = self.local_history.to(device)
+        self._head_indices = self._head_indices.to(device)
+        if self.logical_id_map is not None:
+            self.logical_id_map = self.logical_id_map.to(device)
+        return self
+
     # ------------------------------------------------------------------
     # Prefill helpers
     # ------------------------------------------------------------------

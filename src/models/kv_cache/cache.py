@@ -232,6 +232,13 @@ class STICKYKVCache_LayerWise(nn.Module):
         q_len=None,
         q_attn_scores=None,
     ):
+        device = attn_score_cache.device
+        if getattr(self, '_current_device', None) != device:
+            if hasattr(self.eviction_manager, 'to'): self.eviction_manager.to(device)
+            if hasattr(self.quantization_manager, 'to'): self.quantization_manager.to(device)
+            if hasattr(self.tracking_manager, 'to'): self.tracking_manager.to(device)
+            self._current_device = device
+
         _, _, q_len_cache, _ = attn_score_cache.shape
         q_len = q_len if q_len is not None else q_len_cache
 
