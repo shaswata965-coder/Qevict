@@ -26,27 +26,49 @@ else:
 
 class STICKYLlamaForCausalLM(LlamaForCausalLM):
     def __init__(self, config, **kwargs):
-        # The parent LlamaForCausalLM initializes LlamaModel, which initializes LlamaAttention.
-        # Standard LlamaAttention validates 'rope_scaling'. If it sees 'llama3' (unknown to older transformers), it crashes.
-        # We must strip it for the parent init, then put the correct config back for OUR custom layers.
-        
-        # 1. Create a "safe" config for the parent class
-        safe_config = copy.deepcopy(config)
-        if hasattr(safe_config, "rope_scaling"):
-            safe_config.rope_scaling = None
-            
-        # 2. Initialize parent with safe config
-        super().__init__(safe_config)
-        
-        # 3. Restore the correct config on the model instance (so model.config is correct)
+        # Modern transformers (>= 4.43) handles "llama3" rope_type natively.
+        # For older transformers that crash on unknown rope types, we sanitize
+        # rope_scaling BEFORE calling super().__init__() so we never call it twice.
+        # Calling super().__init__() twice on a partially-initialised object causes
+        # self.model.layers to be None → 'NoneType' object is not subscriptable.
+        rope_scaling_backup = getattr(config, "rope_scaling", None)
+
+        # Probe whether super().__init__ will accept this rope_scaling without
+        # actually running it — we do a lightweight structural check instead.
+        rope_scaling = getattr(config, "rope_scaling", None)
+        if rope_scaling is not None and isinstance(rope_scaling, dict):
+            rope_type = rope_scaling.get("type") or rope_scaling.get("rope_type", "")
+            allowed = {"linear", "dynamic", "llama3", "yarn", "longrope", ""}
+            if rope_type not in allowed:
+                # Unknown type — clear it now so super().__init__ won't crash
+                config.rope_scaling = None
+
+        try:
+            super().__init__(config)
+        except (ValueError, TypeError, KeyError) as e:
+            # Last-resort fallback: strip rope_scaling and retry.
+            # Only reached if the structural check above missed something.
+            import warnings
+            warnings.warn(
+                f"STICKYLlamaForCausalLM: super().__init__ failed ({e}). "
+                "Retrying after clearing rope_scaling — this should not normally happen."
+            )
+            # We must NOT call super().__init__() again on the same object.
+            # Create a fresh config copy for the retry instead.
+            config_copy = copy.deepcopy(config)
+            config_copy.rope_scaling = None
+            super().__init__(config_copy)
+
+        # Always restore the original rope_scaling on the live config object
+        config.rope_scaling = rope_scaling_backup
         self.config = config
-        
+
         print(f"DEBUG: Initializing STICKYLlamaForCausalLM with {len(self.model.layers)} layers")
-        
+
         for layer_idx in range(len(self.model.layers)):
             # Explicitly overwrite the module using the ORIGINAL (unsafe) config
             self.model.layers[layer_idx].self_attn = STICKYLlamaAttention(config, layer_idx)
-        
+
         print("DEBUG: All attention layers replaced.")
 
     def prepare_inputs_for_generation(

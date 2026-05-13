@@ -1,7 +1,7 @@
 
 # import torch
 
-MODEL_PATH = "/kaggle/input/llama-3.2/transformers/1b-instruct/1"
+MODEL_PATH = "/kaggle/input/models/metaresearch/llama-3.2/transformers/1b-instruct/1"
 
 # --- STICKY SPECIFIC RATIOS ---
 # Adjust these to match the VRAM usage of your quantized setup
