@@ -72,16 +72,15 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
 
         print(f"Loaded STICKYLlamaForCausalLM — {len(self.model.layers)} layers, backend={'flash' if _use_fa else 'sdpa'}")
 
-    def _get_cache(self, *args, **kwargs):
-        """Override: always use StickyCache so our attention gets its typed slot API.
-
-        HF's generate() calls this (with varying signatures across versions) to
-        create the initial cache object before the first forward pass.
-        Accepting *args/**kwargs makes this forward-compatible with any HF version.
-        """
-        num_layers = self.config.num_hidden_layers
-        print(f"[DBG] _get_cache called — returning StickyCache(num_layers={num_layers})", flush=True)
-        return StickyCache(num_layers=num_layers)
+    # NOTE: _get_cache() is intentionally NOT overridden.
+    #
+    # Many HF versions never call _get_cache(). Instead, LlamaModel.forward()
+    # creates a DynamicCache directly when past_key_values is None.
+    # Our attention module works with ANY cache type (DynamicCache, StickyCache)
+    # by reading/writing via the cache.key_cache / cache.value_cache lists.
+    #
+    # If _get_cache IS called by a particular HF version, DynamicCache works
+    # fine — our module updates it in place.
 
     def prepare_inputs_for_generation(
         self, input_ids, past_key_values=None, attention_mask=None, inputs_embeds=None, **kwargs
@@ -101,16 +100,27 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
             input_ids, past_key_values=past_key_values, attention_mask=attention_mask,
             inputs_embeds=inputs_embeds, **kwargs
         )
+
         if past_key_values is not None:
-            # Force single-token decode regardless of how super() sliced input_ids
+            # Force single-token decode regardless of how super() sliced input_ids.
+            # This is necessary because the physical cache is compressed by eviction,
+            # so HF thinks fewer tokens have been processed and may try to feed
+            # multiple tokens.
             model_inputs["input_ids"] = input_ids[:, -1:]
+
+            # Ensure the cache object flows through.  Some HF versions may
+            # create a new cache or drop it — we force it back.
+            model_inputs["past_key_values"] = past_key_values
+            model_inputs["use_cache"] = True
+
             if not hasattr(self, '_prep_dbg_count'):
                 self._prep_dbg_count = 0
             if self._prep_dbg_count < 3:
                 cache_type = type(past_key_values).__name__
+                cache_id = id(past_key_values)
                 inp_shape = model_inputs['input_ids'].shape
                 pos_ids = model_inputs.get('position_ids', 'NOT_SET')
-                print(f"[DBG prep_inputs #{self._prep_dbg_count}] cache={cache_type} input_ids_shape={inp_shape} position_ids={pos_ids}", flush=True)
+                print(f"[DBG prep_inputs #{self._prep_dbg_count}] cache={cache_type} (id={cache_id}) input_ids_shape={inp_shape} position_ids={pos_ids}", flush=True)
                 self._prep_dbg_count += 1
 
         return model_inputs

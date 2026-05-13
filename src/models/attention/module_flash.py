@@ -17,10 +17,7 @@ from src.models.sticky_kv_logic_fast_attention import (
     apply_rotary_pos_emb_single,
     STICKYKVCache_LayerWise,
 )
-try:
-    from src.models.sticky_cache import StickyCache
-except ImportError:
-    from ..sticky_cache import StickyCache
+from .module import _read_kv_from_cache, _write_kv_to_cache
 from .rope import Llama3RotaryEmbedding, init_rope  # noqa: F401
 from .ops import (
     compute_main_logits,
@@ -86,23 +83,19 @@ class STICKYLlamaAttention(nn.Module):
         bsz, q_len, _ = hidden_states.size()
 
         # ------------------------------------------------------------------
-        # 1. Extract (k, v) tuple from cache object
+        # 1. Extract (k, v) tuple from any HF cache type
         # ------------------------------------------------------------------
-        sticky_cache = None
-        past_kv: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+        past_kv, cache_obj = _read_kv_from_cache(past_key_value, self.layer_idx)
 
-        if isinstance(past_key_value, StickyCache):
-            sticky_cache = past_key_value
-            past_kv = sticky_cache.get_kv(self.layer_idx)
-        elif isinstance(past_key_value, tuple):
-            past_kv = past_key_value
-        elif past_key_value is not None and hasattr(past_key_value, "key_cache"):
-            sticky_cache = past_key_value
-            if len(past_key_value.key_cache) > self.layer_idx:
-                k = past_key_value.key_cache[self.layer_idx]
-                v = past_key_value.value_cache[self.layer_idx]
-                if k.numel() > 0:
-                    past_kv = (k, v)
+        # Debug counter (layer 0 only)
+        if self.layer_idx == 0 and not hasattr(self, '_dbg_count'):
+            self._dbg_count = 0
+
+        if self.layer_idx == 0 and self._dbg_count < 5:
+            cache_type = type(past_key_value).__name__ if past_key_value is not None else 'None'
+            cache_id = id(past_key_value) if past_key_value is not None else 0
+            past_kv_shape = past_kv[0].shape if past_kv is not None else 'None'
+            print(f"[DBG L0 step={self._dbg_count}] q_len={q_len} cache_type={cache_type} (id={cache_id}) past_kv_shape={past_kv_shape}", flush=True)
 
         # ------------------------------------------------------------------
         # 2. Position IDs — TRUE global sequence position
@@ -153,6 +146,11 @@ class STICKYLlamaAttention(nn.Module):
             value_states = torch.cat([past_kv[1], value_states], dim=2)
 
         current_kv = (key_states, value_states) if use_cache else None
+
+        if self.layer_idx == 0 and self._dbg_count < 5:
+            has_qcache = hasattr(self.kv_cache, 'q_cache_k_quant') and self.kv_cache.q_cache_k_quant is not None
+            print(f"[DBG L0 step={self._dbg_count}] pos_ids={position_ids[0,:3].tolist()}... global_tc={self.kv_cache.global_token_counter.item()} phys_past={phys_past_len} has_qcache={has_qcache} concat_k_shape={key_states.shape}", flush=True)
+            self._dbg_count += 1
 
         if q_len > 1:
             # ----------------------------------------------------------
@@ -215,17 +213,14 @@ class STICKYLlamaAttention(nn.Module):
             attn_weights_return = attn_weights_for_output if output_attentions else None
 
         # ------------------------------------------------------------------
-        # 7. Write evicted KV back into the cache object
+        # 7. Write evicted KV back into the cache object in-place
         # ------------------------------------------------------------------
-        if use_cache and evicted_kv is not None:
-            if isinstance(sticky_cache, StickyCache):
-                sticky_cache.set_kv(self.layer_idx, evicted_kv)
-            elif sticky_cache is not None and hasattr(sticky_cache, "key_cache"):
-                while len(sticky_cache.key_cache) <= self.layer_idx:
-                    sticky_cache.key_cache.append(torch.empty(0))
-                    sticky_cache.value_cache.append(torch.empty(0))
-                sticky_cache.key_cache[self.layer_idx]   = evicted_kv[0]
-                sticky_cache.value_cache[self.layer_idx] = evicted_kv[1]
+        if use_cache and evicted_kv is not None and cache_obj is not None:
+            global_tc = int(self.kv_cache.global_token_counter.item())
+            _write_kv_to_cache(cache_obj, self.layer_idx, evicted_kv, global_tc)
+            
+            if self.layer_idx == 0 and self._dbg_count <= 5:
+                print(f"[DBG L0 writeback step={self._dbg_count - 1}] cache_id={id(cache_obj)} _seen_tokens={getattr(cache_obj, '_seen_tokens', 'N/A')}", flush=True)
 
         # ------------------------------------------------------------------
         # 8. Output projection
