@@ -34,6 +34,11 @@ from .ops import (
 def _read_kv_from_cache(cache_obj, layer_idx):
     """Extract (k, v) from any HF-compatible cache object.
 
+    Supports three storage layouts:
+      1. NEW HF (>= 4.48): cache.layers[layer_idx].keys / .values  (DynamicLayer objects)
+      2. OLD HF (4.36-4.47): cache.key_cache[layer_idx] / cache.value_cache[layer_idx]
+      3. Legacy tuple: (k_tensor, v_tensor) passed directly
+
     Returns (past_kv, cache_obj) where:
       past_kv   = (k_tensor, v_tensor) or None if empty/prefill
       cache_obj = the cache object to write back to (never None after first call)
@@ -41,7 +46,18 @@ def _read_kv_from_cache(cache_obj, layer_idx):
     if cache_obj is None:
         return None, None
 
-    # Both DynamicCache and StickyCache have key_cache / value_cache lists
+    # NEW HF: DynamicCache has .layers list of DynamicLayer objects
+    # Each DynamicLayer stores .keys and .values as tensors
+    if hasattr(cache_obj, "layers") and hasattr(cache_obj, "update"):
+        if len(cache_obj.layers) > layer_idx:
+            layer = cache_obj.layers[layer_idx]
+            k = getattr(layer, "keys", None)
+            v = getattr(layer, "values", None)
+            if k is not None and k.numel() > 0:
+                return (k, v), cache_obj
+        return None, cache_obj
+
+    # OLD HF: DynamicCache has .key_cache / .value_cache lists
     if hasattr(cache_obj, "key_cache"):
         if len(cache_obj.key_cache) > layer_idx:
             k = cache_obj.key_cache[layer_idx]
@@ -61,26 +77,49 @@ def _read_kv_from_cache(cache_obj, layer_idx):
 def _write_kv_to_cache(cache_obj, layer_idx, evicted_kv, global_token_counter):
     """Write evicted KV back into the cache object in-place.
 
-    Also updates _seen_tokens at layer 0 so HF computes correct positions.
+    Supports both NEW HF (layers[i].keys/values) and OLD HF (key_cache/value_cache).
     """
     if cache_obj is None or evicted_kv is None:
         return
 
-    # Grow lists if needed
-    while len(cache_obj.key_cache) <= layer_idx:
-        cache_obj.key_cache.append(torch.empty(0))
-        cache_obj.value_cache.append(torch.empty(0))
+    # NEW HF: DynamicCache has .layers list of DynamicLayer objects
+    if hasattr(cache_obj, "layers") and hasattr(cache_obj, "update"):
+        # Grow layers if needed (DynamicCache normally does this via update())
+        while len(cache_obj.layers) <= layer_idx:
+            # Import DynamicLayer from the layer_class_to_replicate or create one
+            if hasattr(cache_obj, "layer_class_to_replicate") and cache_obj.layer_class_to_replicate is not None:
+                cache_obj.layers.append(cache_obj.layer_class_to_replicate())
+            else:
+                # Fallback: try to import DynamicLayer
+                try:
+                    from transformers.cache_utils import DynamicLayer
+                    cache_obj.layers.append(DynamicLayer())
+                except ImportError:
+                    # Absolute fallback: create a simple namespace
+                    class _FakeLayer:
+                        keys = None
+                        values = None
+                        is_initialized = False
+                    cache_obj.layers.append(_FakeLayer())
 
-    cache_obj.key_cache[layer_idx] = evicted_kv[0]
-    cache_obj.value_cache[layer_idx] = evicted_kv[1]
+        layer = cache_obj.layers[layer_idx]
+        layer.keys = evicted_kv[0]
+        layer.values = evicted_kv[1]
+        layer.is_initialized = True
+        return
 
-    # Update _seen_tokens on layer 0.  HF reads this to compute cache_position
-    # and build causal masks.  It must reflect the TRUE total sequence length
-    # (not the compressed physical cache size) so that:
-    #   - prepare_inputs_for_generation slices input_ids correctly
-    #   - _update_causal_mask builds a mask of the right shape
-    if layer_idx == 0 and hasattr(cache_obj, "_seen_tokens"):
-        cache_obj._seen_tokens = int(global_token_counter)
+    # OLD HF: DynamicCache has .key_cache / .value_cache lists
+    if hasattr(cache_obj, "key_cache"):
+        while len(cache_obj.key_cache) <= layer_idx:
+            cache_obj.key_cache.append(torch.empty(0))
+            cache_obj.value_cache.append(torch.empty(0))
+        cache_obj.key_cache[layer_idx] = evicted_kv[0]
+        cache_obj.value_cache[layer_idx] = evicted_kv[1]
+
+        # Update _seen_tokens on layer 0 (old HF reads this for position tracking)
+        if layer_idx == 0 and hasattr(cache_obj, "_seen_tokens"):
+            cache_obj._seen_tokens = int(global_token_counter)
+        return
 
 
 class STICKYLlamaAttention(nn.Module):
