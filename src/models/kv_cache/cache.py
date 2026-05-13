@@ -366,6 +366,12 @@ class STICKYKVCache_LayerWise(nn.Module):
         if em.tokens_since_last_review != self.omega:
             return past_key_values
 
+        # Guard: if the physical cache is at or below the sink-token zone,
+        # there are no evictable windows — skip the cycle entirely.
+        if seq_len <= self.sink_tokens:
+            em.reset_decode_counters(seq_len)
+            return past_key_values
+
         # --- Eviction cycle ---
         result = em.run_decode_cycle(
             k_windows=self.k_windows,
@@ -510,10 +516,13 @@ class STICKYKVCache_LayerWise(nn.Module):
             _local_lids = local_start_wid + (offsets // omega)
 
         # 1. Sinks
-        new_k[0, :, :sink_tokens] = past_key_values[0][0, :, :sink_tokens]
-        new_v[0, :, :sink_tokens] = past_key_values[1][0, :, :sink_tokens]
-        new_lid_map[:, :sink_tokens] = em.logical_id_map[:, :sink_tokens]
-        mapping[:, :sink_tokens] = torch.arange(sink_tokens, device=device, dtype=torch.float32).unsqueeze(0)
+        # Guard: seq_len may be < sink_tokens on the very first decode eviction
+        # cycle (edge case). Only copy as many sink positions as actually exist.
+        actual_sink = min(sink_tokens, seq_len)
+        new_k[0, :, :actual_sink] = past_key_values[0][0, :, :actual_sink]
+        new_v[0, :, :actual_sink] = past_key_values[1][0, :, :actual_sink]
+        new_lid_map[:, :actual_sink] = em.logical_id_map[:, :actual_sink]
+        mapping[:, :actual_sink] = torch.arange(actual_sink, device=device, dtype=torch.float32).unsqueeze(0)
 
         # 2. Sticky windows — vectorised batch copy
         if found_in_main.any():
