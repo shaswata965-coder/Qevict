@@ -191,6 +191,8 @@ class QuantizationManager(BaseQuantizationManager):
                 # pre_block_wids was built from logical_id_map[:, sink_tokens + slot*omega]
                 # so nr_slot is the block index in the compressed cache, post-sink region
                 nr_phys_start = self.sink_tokens + nr_slot * omega
+                # Guard: exclude windows whose physical span exceeds the cache
+                nr_found = nr_found & ((nr_phys_start + omega) <= seq_len)
             else:
                 nr_found = torch.zeros(nr_count, device=device, dtype=torch.bool)
                 nr_phys_start = torch.zeros(nr_count, device=device, dtype=torch.long)

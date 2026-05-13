@@ -441,6 +441,9 @@ class STICKYKVCache_LayerWise(nn.Module):
             found_in_main = match.any(dim=2)
             slot_idx = match.to(torch.uint8).argmax(dim=2)
             first_phys = sink_tokens + slot_idx * omega
+            # Guard: exclude windows whose physical span exceeds the old cache
+            in_bounds = (first_phys + omega) <= seq_len
+            found_in_main = found_in_main & in_bounds
         else:
             found_in_main = torch.zeros(num_heads, curr_k, device=device, dtype=torch.bool)
             first_phys = torch.zeros(num_heads, curr_k, device=device, dtype=torch.long)
