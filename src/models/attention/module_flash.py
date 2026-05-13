@@ -248,9 +248,11 @@ class STICKYLlamaAttention(nn.Module):
         attn_output = self.o_proj(attn_output)
 
         # 9. Write evicted cache back to DynamicCache (if applicable)
+        # NOTE: We write back into the hf_cache_obj in-place. Modern HF (>= 4.46)
+        # reads past_key_values from the Cache object, NOT from the attention return value.
+        # LlamaDecoderLayer now does: `hidden_states, _ = self.self_attn(...)`  (2-tuple unpack).
+        # Returning a 3rd element causes: ValueError: too many values to unpack (expected 2).
         if use_cache and is_hf_cache:
             self._write_to_hf_cache(hf_cache_obj, past_key_value)
-            past_key_value = hf_cache_obj
 
-        # Return 3 elements for compatibility with both old and new HF
-        return attn_output, attn_weights_return, past_key_value
+        return attn_output, attn_weights_return
