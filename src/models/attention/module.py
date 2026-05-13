@@ -134,9 +134,15 @@ class STICKYLlamaAttention(nn.Module):
         past_key_value=None,
         output_attentions: bool = False,
         use_cache: bool = False,
+        past_key_values=None,
         **kwargs,
     ):
         bsz, q_len, _ = hidden_states.size()
+
+        # HF >= 4.46 passes "past_key_values" (plural), older passes "past_key_value" (singular).
+        # Accept whichever one is non-None.
+        if past_key_value is None and past_key_values is not None:
+            past_key_value = past_key_values
 
         # Debug counter (layer 0 only)
         if self.layer_idx == 0 and not hasattr(self, '_dbg_count'):
