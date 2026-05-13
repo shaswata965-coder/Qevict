@@ -245,8 +245,12 @@ class QuantizationManager(BaseQuantizationManager):
                 wid_val = nr_wids_list[idx]
                 if nr_found_list[idx]:
                     ps  = int(nr_phys_start[idx].item())
-                    k_fp = past_key_values[0][0, h_val, ps:ps + omega]
-                    v_fp = past_key_values[1][0, h_val, ps:ps + omega]
+                    if ps + omega <= seq_len:
+                        k_fp = past_key_values[0][0, h_val, ps:ps + omega]
+                        v_fp = past_key_values[1][0, h_val, ps:ps + omega]
+                    else:
+                        k_fp = torch.zeros(omega, head_dim, device=device, dtype=dtype_fp)
+                        v_fp = torch.zeros(omega, head_dim, device=device, dtype=dtype_fp)
                 else:
                     k_fp = torch.zeros(omega, head_dim, device=device, dtype=dtype_fp)
                     v_fp = torch.zeros(omega, head_dim, device=device, dtype=dtype_fp)
