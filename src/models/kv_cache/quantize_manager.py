@@ -20,7 +20,6 @@ import torch
 
 from .base_quantization_manager import BaseQuantizationManager
 from .quantize import quantize_k_per_window, quantize_v_per_window, dequantize_from_quant
-from .rerotation import unrotate_keys_with_positions
 
 
 # ---------------------------------------------------------------------------
@@ -84,9 +83,6 @@ class QuantizationManager(BaseQuantizationManager):
     # --- store_windows ---
     def store_windows(self, k_data, v_data, window_ids, window_scores, q_phys) -> None:
         """Quantise and store loser windows from prefill."""
-        if self.rotary_emb is not None:
-            k_data = unrotate_keys_with_positions(k_data, self.rotary_emb, q_phys)
-
         self._q_cache_k_quant, self._q_cache_k_scale, self._q_cache_k_zp = \
             quantize_k_per_window(k_data, self.quant_bit_width)
         self._q_cache_v_quant, self._q_cache_v_scale, self._q_cache_v_zp = \
@@ -230,9 +226,6 @@ class QuantizationManager(BaseQuantizationManager):
                 if not pb_found.all():
                     pb_k_data[~pb_found] = 0
                     pb_v_data[~pb_found] = 0
-                    
-                if self.rotary_emb is not None:
-                    pb_k_data = unrotate_keys_with_positions(pb_k_data, self.rotary_emb, pb_positions)
 
                 pb_kq, pb_ks, pb_kz = quantize_k_per_window(pb_k_data.unsqueeze(1), self.quant_bit_width)
                 pb_vq, pb_vs, pb_vz = quantize_v_per_window(pb_v_data.unsqueeze(1), self.quant_bit_width)
@@ -244,10 +237,9 @@ class QuantizationManager(BaseQuantizationManager):
                 new_v_zp[pb_h, pb_qi]    = pb_vz[:, 0]
                 del pb_k_heads, pb_v_heads, pb_k_data, pb_v_data
 
-            # Path C: archived meta
-            # The archived k_scale/k_zp were computed from un-rotated keys.
-            # past_key_values contains rotated keys, so we must un-rotate
-            # before applying the archived quantization parameters.
+            # Path C: archived meta — re-quantize using stored scale/zp.
+            # Keys are stored with their original absolute RoPE positions
+            # (no un-rotation needed since we no longer use the rerotation scheme).
             for idx in path_c:
                 h_val  = nr_h_list[idx];  qi_val = nr_qi_list[idx]
                 wid_val = nr_wids_list[idx]
@@ -255,10 +247,6 @@ class QuantizationManager(BaseQuantizationManager):
                     ps  = int(nr_phys_start[idx].item())
                     k_fp = past_key_values[0][0, h_val, ps:ps + omega]
                     v_fp = past_key_values[1][0, h_val, ps:ps + omega]
-                    # Un-rotate keys to base state before re-quantizing
-                    if self.rotary_emb is not None:
-                        positions = torch.arange(ps, ps + omega, device=device, dtype=torch.long)
-                        k_fp = unrotate_keys_with_positions(k_fp, self.rotary_emb, positions)
                 else:
                     k_fp = torch.zeros(omega, head_dim, device=device, dtype=dtype_fp)
                     v_fp = torch.zeros(omega, head_dim, device=device, dtype=dtype_fp)

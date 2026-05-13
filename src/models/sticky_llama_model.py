@@ -1,6 +1,10 @@
 import torch
 import copy
 from transformers.models.llama.modeling_llama import LlamaForCausalLM
+try:
+    from src.models.sticky_cache import StickyCache
+except ImportError:
+    from .sticky_cache import StickyCache
 
 # Backend selection is controlled by USE_FLASH_ATTENTION in sticky_config.
 # tracking_flag only controls whether the TrackingManager is active inside
@@ -63,50 +67,41 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
         config.rope_scaling = rope_scaling_backup
         self.config = config
 
-        print(f"DEBUG: Initializing STICKYLlamaForCausalLM with {len(self.model.layers)} layers")
-
         for layer_idx in range(len(self.model.layers)):
-            # Explicitly overwrite the module using the ORIGINAL (unsafe) config
             self.model.layers[layer_idx].self_attn = STICKYLlamaAttention(config, layer_idx)
 
-        print("DEBUG: All attention layers replaced.")
+        print(f"Loaded STICKYLlamaForCausalLM — {len(self.model.layers)} layers, backend={'flash' if _use_fa else 'sdpa'}")
+
+    def _get_cache(self, *args, **kwargs):
+        """Override: always use StickyCache so our attention gets its typed slot API.
+
+        HF's generate() calls this (with varying signatures across versions) to
+        create the initial cache object before the first forward pass.
+        Accepting *args/**kwargs makes this forward-compatible with any HF version.
+        """
+        num_layers = self.config.num_hidden_layers
+        return StickyCache(num_layers=num_layers)
 
     def prepare_inputs_for_generation(
         self, input_ids, past_key_values=None, attention_mask=None, inputs_embeds=None, **kwargs
     ):
         """Prepare inputs for autoregressive generation.
-        
-        NOTE: The position_ids computed here are overridden by
-        STICKYLlamaAttention.forward() which uses physical cache length for RoPE.
-        This override is necessary because the KV cache is compressed by eviction,
-        so the framework's position tracking is incorrect.
-        
-        WARNING: batch_size > 1 is structurally unsupported because
-        the cache state is per-layer, not per-batch-item.
+
+        We call super() and then forcibly fix the input_ids slice:
+        after eviction the physical cache is shorter than the true sequence,
+        so super() may feed too many tokens — we always force single-token decode.
+
+        position_ids are intentionally NOT overridden here. They are computed
+        correctly inside STICKYLlamaAttention.forward() using global_token_counter
+        (the true sequence position), which is more accurate than anything we
+        can compute from the compressed cache length here.
         """
         model_inputs = super().prepare_inputs_for_generation(
-            input_ids, past_key_values=past_key_values, attention_mask=attention_mask, inputs_embeds=inputs_embeds, **kwargs
+            input_ids, past_key_values=past_key_values, attention_mask=attention_mask,
+            inputs_embeds=inputs_embeds, **kwargs
         )
         if past_key_values is not None:
-            # Override incorrect slicing done by super() due to evicted cache size.
-            # After eviction the physical cache is shorter than the true sequence,
-            # so super() may feed too many tokens. Force single-token decode.
+            # Force single-token decode regardless of how super() sliced input_ids
             model_inputs["input_ids"] = input_ids[:, -1:]
-            
-            # Position IDs generation needs to account for the total generated length
-            # because the KV cache has been artificially shortened by eviction.
-            # `input_ids.shape[1]` perfectly tracks the true global sequence length
-            # during transformers `.generate()` loops.
-            position_ids = kwargs.get("position_ids", None)
-            if position_ids is None:
-                if attention_mask is not None:
-                    position_ids = attention_mask.long().cumsum(-1) - 1
-                    position_ids.masked_fill_(attention_mask == 0, 1)
-                    model_inputs["position_ids"] = position_ids[:, -1:]
-                else:
-                    true_seq_length = input_ids.shape[1]
-                    model_inputs["position_ids"] = torch.tensor([[true_seq_length - 1]], dtype=torch.long, device=input_ids.device)
-            else:
-                model_inputs["position_ids"] = position_ids[:, -1:]
-        
+
         return model_inputs

@@ -14,7 +14,6 @@ from typing import Tuple
 
 import torch
 
-from src.models.kv_cache.rerotation import rerotate_keys
 
 
 # ---------------------------------------------------------------------------
@@ -114,17 +113,6 @@ def compute_qcache_joint_softmax(
     H, W, omega, D = q_k.shape
     q_k = q_k.reshape(H, W * omega, D).unsqueeze(0)
     q_v = q_v.reshape(H, W * omega, D).unsqueeze(0)
-
-    # Re-rotate Q-cache keys from base state to valid RoPE positions.
-    # Keys are stored un-rotated in Q-cache; we re-rotate them to
-    # contiguous positions starting at 0 so they have valid positional
-    # encoding for attention score computation.
-    if hasattr(kv_cache, 'rotary_emb') and kv_cache.rotary_emb is not None:
-        q_total = W * omega
-        cos_table, sin_table = kv_cache.rotary_emb(q_k, seq_len=q_total)
-        cos_q = cos_table[:q_total].unsqueeze(0).unsqueeze(0)  # [1, 1, q_total, D]
-        sin_q = sin_table[:q_total].unsqueeze(0).unsqueeze(0)
-        q_k = rerotate_keys(q_k, cos_q, sin_q)
 
     if num_heads != num_kv_heads:
         q_grouped = query_states.reshape(

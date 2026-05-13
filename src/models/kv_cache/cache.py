@@ -35,7 +35,7 @@ from .eviction import (
 from .eviction_manager import EvictionManager, DecodeEvictionResult
 from .quantize_manager import QuantizationManager, NoOpQuantizationManager
 from .tracking_manager import TrackingManager, NoOpTrackingManager
-from .rerotation import rerotate_cache_keys, unrotate_keys_with_positions, rerotate_keys
+from .rerotation import rerotate_keys  # kept for potential external callers; not used in cache.py
 
 
 class STICKYKVCache_LayerWise(nn.Module):
@@ -323,14 +323,6 @@ class STICKYKVCache_LayerWise(nn.Module):
                 window_to_token_map=self.window_to_token_map,
                 num_heads=self.num_heads,
             )
-            
-            if self.rotary_emb is not None:
-                updated_kv = (
-                    rerotate_cache_keys(
-                        updated_kv[0], self.rotary_emb, survivor_ids.long(), updated_kv[0].shape[2]
-                    ),
-                    updated_kv[1]
-                )
 
             self.eviction_manager.commit_prefill_result(survivor_ids)
 
@@ -364,12 +356,6 @@ class STICKYKVCache_LayerWise(nn.Module):
         )
 
         if em.tokens_since_last_review != self.omega:
-            return past_key_values
-
-        # Guard: if the physical cache is at or below the sink-token zone,
-        # there are no evictable windows — skip the cycle entirely.
-        if seq_len <= self.sink_tokens:
-            em.reset_decode_counters(seq_len)
             return past_key_values
 
         # --- Eviction cycle ---
@@ -408,51 +394,6 @@ class STICKYKVCache_LayerWise(nn.Module):
             past_key_values, result, promoted_k, promoted_v,
             em._dynamic_local_count, device,
         )
-
-        if self.rotary_emb is not None:
-            new_seq_len = updated_kv[0].shape[2]
-            new_k = updated_kv[0]
-
-            # Step 1: Build original_positions and a mask for keys that came
-            # from the old BF16 cache (which have valid RoPE to un-rotate).
-            # Q-cache promoted keys are already un-rotated and must NOT be
-            # un-rotated again — they only need re-rotation.
-            has_old_rope = torch.zeros(self.num_heads, new_seq_len, device=device, dtype=torch.bool)
-            original_positions = torch.zeros(self.num_heads, new_seq_len, device=device, dtype=torch.long)
-            valid_mask = mapping != -1
-            if valid_mask.any():
-                old_pos = torch.arange(seq_len, device=device).unsqueeze(0).expand(self.num_heads, -1)
-                old_pos_valid = old_pos[valid_mask]
-                new_pos_valid = mapping[valid_mask].long()
-                heads_valid = torch.arange(self.num_heads, device=device).unsqueeze(1).expand(-1, seq_len)[valid_mask]
-                original_positions[heads_valid, new_pos_valid] = old_pos_valid
-                has_old_rope[heads_valid, new_pos_valid] = True
-
-            # Step 2: Un-rotate only the keys that came from the old BF16 cache
-            if has_old_rope.any():
-                max_old_pos = original_positions.max().item()
-                cos_table, sin_table = self.rotary_emb(new_k, seq_len=max(max_old_pos + 1, new_seq_len))
-                # Gather cos/sin for original positions: [num_heads, new_seq_len, head_dim]
-                cos_old = cos_table[original_positions]  # [H, new_seq_len, D]
-                sin_old = sin_table[original_positions]
-                # Expand for batch dim: [1, H, new_seq_len, D]
-                cos_old = cos_old.unsqueeze(0)
-                sin_old = sin_old.unsqueeze(0)
-                # Create a broadcast mask [1, H, new_seq_len, 1]
-                rope_mask = has_old_rope.unsqueeze(0).unsqueeze(-1)  # [1, H, new_seq_len, 1]
-                # Un-rotate only where has_old_rope is True
-                from .helpers import rotate_half
-                unrotated = (new_k * cos_old) + (rotate_half(new_k) * (-sin_old))
-                new_k = torch.where(rope_mask, unrotated, new_k)
-
-            # Step 3: Re-rotate ALL keys to contiguous [0..new_seq_len-1]
-            if new_seq_len > 0:
-                cos_table, sin_table = self.rotary_emb(new_k, seq_len=new_seq_len)
-                cos_new = cos_table[:new_seq_len].unsqueeze(0).unsqueeze(0)  # [1, 1, new_seq_len, D]
-                sin_new = sin_table[:new_seq_len].unsqueeze(0).unsqueeze(0)
-                new_k = rerotate_keys(new_k, cos_new, sin_new)
-
-            updated_kv = (new_k, updated_kv[1])
 
         em.commit_decode_result(result, new_lid_map)
 
@@ -516,13 +457,10 @@ class STICKYKVCache_LayerWise(nn.Module):
             _local_lids = local_start_wid + (offsets // omega)
 
         # 1. Sinks
-        # Guard: seq_len may be < sink_tokens on the very first decode eviction
-        # cycle (edge case). Only copy as many sink positions as actually exist.
-        actual_sink = min(sink_tokens, seq_len)
-        new_k[0, :, :actual_sink] = past_key_values[0][0, :, :actual_sink]
-        new_v[0, :, :actual_sink] = past_key_values[1][0, :, :actual_sink]
-        new_lid_map[:, :actual_sink] = em.logical_id_map[:, :actual_sink]
-        mapping[:, :actual_sink] = torch.arange(actual_sink, device=device, dtype=torch.float32).unsqueeze(0)
+        new_k[0, :, :sink_tokens] = past_key_values[0][0, :, :sink_tokens]
+        new_v[0, :, :sink_tokens] = past_key_values[1][0, :, :sink_tokens]
+        new_lid_map[:, :sink_tokens] = em.logical_id_map[:, :sink_tokens]
+        mapping[:, :sink_tokens] = torch.arange(sink_tokens, device=device, dtype=torch.float32).unsqueeze(0)
 
         # 2. Sticky windows — vectorised batch copy
         if found_in_main.any():

@@ -46,8 +46,8 @@ from src.models.kv_cache.eviction import (
 from src.models.kv_cache.eviction_manager import EvictionManager, DecodeEvictionResult
 from src.models.kv_cache.quantize_manager import QuantizationManager, NoOpQuantizationManager
 from src.models.kv_cache.tracking_manager import NoOpTrackingManager
-from src.models.kv_cache.rerotation import rerotate_cache_keys, rerotate_keys
-from src.models.kv_cache.helpers import rotate_half
+# rerotation.py kept for reference; not called in this module
+from src.models.kv_cache.helpers import rotate_half  # noqa: F401 — kept for external callers
 
 
 class STICKYKVCache_LayerWise(nn.Module):
@@ -319,16 +319,6 @@ class STICKYKVCache_LayerWise(nn.Module):
                 num_heads=self.num_heads,
             )
             self.eviction_manager.commit_prefill_result(survivor_ids)
-
-            # Rerotation: un-rotate from original positions, re-rotate to contiguous
-            if self.rotary_emb is not None:
-                updated_kv = (
-                    rerotate_cache_keys(
-                        updated_kv[0], self.rotary_emb, survivor_ids.long(), updated_kv[0].shape[2]
-                    ),
-                    updated_kv[1]
-                )
-
             # FA2: no tracking at prefill
 
             self._prefill_done = True
@@ -388,105 +378,6 @@ class STICKYKVCache_LayerWise(nn.Module):
             past_key_values, result, promoted_k, promoted_v,
             em._dynamic_local_count, device,
         )
-
-        # Rerotation for decode
-        if self.rotary_emb is not None:
-            new_seq_len = updated_kv[0].shape[2]
-            new_k = updated_kv[0]
-            omega = self.omega
-            sink_tokens = self.sink_tokens
-            num_heads = self.num_heads
-            curr_k = result.curr_k
-
-            # Track which new positions have old-RoPE data (vs un-rotated Q-cache data)
-            has_old_rope = torch.zeros(num_heads, new_seq_len, device=device, dtype=torch.bool)
-            original_positions = torch.zeros(num_heads, new_seq_len, device=device, dtype=torch.long)
-
-            # 1. Sinks: identity mapping
-            if sink_tokens > 0:
-                sink_range = torch.arange(sink_tokens, device=device, dtype=torch.long)
-                original_positions[:, :sink_tokens] = sink_range.unsqueeze(0)
-                has_old_rope[:, :sink_tokens] = True
-
-            # 2. Sticky windows found in main cache
-            num_old_blocks = result.pre_num_old_blocks
-            if num_old_blocks > 0:
-                block_wids = result.pre_block_wids
-                match = (block_wids.unsqueeze(1) == result.winner_ids.unsqueeze(2))
-                found_in_main = match.any(dim=2)
-                slot_idx = match.to(torch.uint8).argmax(dim=2)
-                first_phys = sink_tokens + slot_idx * omega
-            else:
-                found_in_main = torch.zeros(num_heads, curr_k, device=device, dtype=torch.bool)
-                first_phys = torch.zeros(num_heads, curr_k, device=device, dtype=torch.long)
-
-            if found_in_main.any():
-                offsets_om = torch.arange(omega, device=device, dtype=torch.long)
-                for h in range(num_heads):
-                    for k_idx in range(curr_k):
-                        if found_in_main[h, k_idx]:
-                            old_start = int(first_phys[h, k_idx].item())
-                            new_start = sink_tokens + k_idx * omega
-                            original_positions[h, new_start:new_start + omega] = torch.arange(
-                                old_start, old_start + omega, device=device, dtype=torch.long
-                            )
-                            has_old_rope[h, new_start:new_start + omega] = True
-
-            # 3. Non-main windows: Q-cache promoted are un-rotated, fallback are from old cache
-            _promoted_set = set()
-            for h in range(num_heads):
-                for wid, _ in promoted_k.get(h, []):
-                    _promoted_set.add((h, int(wid)))
-
-            not_in_main = ~found_in_main if num_old_blocks > 0 else torch.ones(num_heads, curr_k, device=device, dtype=torch.bool)
-            if not_in_main.any():
-                heads_nm, indices_nm = not_in_main.nonzero(as_tuple=True)
-                for h_idx, i_idx in zip(heads_nm.tolist(), indices_nm.tolist()):
-                    wid_val = int(result.winner_ids[h_idx, i_idx].item())
-                    new_pos = sink_tokens + i_idx * omega
-                    if (h_idx, wid_val) in _promoted_set:
-                        # Q-cache promoted: un-rotated, don't mark has_old_rope
-                        pass
-                    else:
-                        # Fallback: data came from old cache at its old span
-                        span = find_logical_window_span(em.logical_id_map, omega, h_idx, wid_val, seq_len)
-                        if span is not None:
-                            old_s, _ = span
-                            original_positions[h_idx, new_pos:new_pos + omega] = torch.arange(
-                                old_s, old_s + omega, device=device, dtype=torch.long
-                            )
-                            has_old_rope[h_idx, new_pos:new_pos + omega] = True
-
-            # 4. Local zone
-            local_tokens_count = em._dynamic_local_count
-            if local_tokens_count > 0:
-                new_compressed_len = sink_tokens + curr_k * omega
-                old_local_start = seq_len - local_tokens_count
-                new_local_start = new_compressed_len
-                actual_local = min(local_tokens_count, seq_len - old_local_start)
-                original_positions[:, new_local_start:new_local_start + actual_local] = torch.arange(
-                    old_local_start, old_local_start + actual_local, device=device, dtype=torch.long
-                ).unsqueeze(0)
-                has_old_rope[:, new_local_start:new_local_start + actual_local] = True
-
-            # Step 2: Un-rotate only the keys that came from the old BF16 cache
-            if has_old_rope.any():
-                max_old_pos = original_positions.max().item()
-                cos_table, sin_table = self.rotary_emb(new_k, seq_len=max(max_old_pos + 1, new_seq_len))
-                cos_old = cos_table[original_positions].unsqueeze(0)
-                sin_old = sin_table[original_positions].unsqueeze(0)
-                rope_mask = has_old_rope.unsqueeze(0).unsqueeze(-1)
-                unrotated = (new_k * cos_old) + (rotate_half(new_k) * (-sin_old))
-                new_k = torch.where(rope_mask, unrotated, new_k)
-
-            # Step 3: Re-rotate ALL keys to contiguous [0..new_seq_len-1]
-            if new_seq_len > 0:
-                cos_table, sin_table = self.rotary_emb(new_k, seq_len=new_seq_len)
-                cos_new = cos_table[:new_seq_len].unsqueeze(0).unsqueeze(0)
-                sin_new = sin_table[:new_seq_len].unsqueeze(0).unsqueeze(0)
-                new_k = rerotate_keys(new_k, cos_new, sin_new)
-
-            updated_kv = (new_k, updated_kv[1])
 
         em.commit_decode_result(result, new_lid_map)
         em.reset_decode_counters(seq_len)
