@@ -256,9 +256,10 @@ class EvictionManager:
 
         # --- Read existing window scores ---
         valid_mask = ~torch.isnan(self.window_scores[:, :, 1])
-        # WARN-2 fix: use per-head max rather than cross-head min to avoid silently
-        # dropping valid windows for heads that have more entries than the weakest head.
-        valid_old_windows = min(k_windows, int(valid_mask.sum(dim=1).max().item()))
+        # FIX (C1): Use .min() not .max() — parity with original cumulative cache.
+        # .max() caused NaN-padded slots to be read for heads with fewer valid windows,
+        # injecting phantom Window-0 scores via nan_to_num(nan=0.0).
+        valid_old_windows = min(k_windows, int(valid_mask.sum(dim=1).min().item()))
         raw_ids = self.window_scores[:, :valid_old_windows, 1]
         raw_scores = self.window_scores[:, :valid_old_windows, 0]
         is_valid_slot = ~torch.isnan(raw_ids)
