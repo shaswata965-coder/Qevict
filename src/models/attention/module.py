@@ -164,6 +164,7 @@ class STICKYLlamaAttention(nn.Module):
 
     def _clean_cache(self):
         self.kv_cache._clean_scores()
+        self._dbg_count = 0
 
     def forward(
         self,
@@ -320,14 +321,21 @@ class STICKYLlamaAttention(nn.Module):
             global_tc = int(self.kv_cache.global_token_counter.item())
             _write_kv_to_cache(cache_obj, self.layer_idx, evicted_kv, global_tc)
             
-            if self.layer_idx == 0 and self._dbg_count <= 5:
-                print(f"[DBG L0 writeback step={self._dbg_count - 1}] cache_id={id(cache_obj)} _seen_tokens={getattr(cache_obj, '_seen_tokens', 'N/A')}", flush=True)
+            if self.layer_idx == 0 and self._dbg_count < 6:
+                ev_shape = evicted_kv[0].shape if evicted_kv is not None else 'None'
+                ck_shape = current_kv[0].shape if current_kv is not None else 'None'
+                print(f"[DBG L0 writeback step={self._dbg_count - 1}] cache_id={id(cache_obj)} current_kv={ck_shape} evicted_kv={ev_shape} global_tc={global_tc}", flush=True)
 
         # ------------------------------------------------------------------
         # 11. Output projection
         # ------------------------------------------------------------------
         attn_output = attn_output.transpose(1, 2).contiguous().reshape(bsz, q_len, self.hidden_size)
         attn_output = self.o_proj(attn_output)
+
+        if self.layer_idx == 0 and hasattr(self, '_dbg_count') and self._dbg_count < 6:
+            has_nan = torch.isnan(attn_output).any().item()
+            out_norm = attn_output.norm().item()
+            print(f"[DBG L0 output step={self._dbg_count - 1}] shape={attn_output.shape} has_nan={has_nan} norm={out_norm:.4f}", flush=True)
 
         # HF >= 4.46: LlamaDecoderLayer does `hidden_states, _ = self.self_attn(...)`
         # The cache is updated in-place above — it is NOT returned here.
