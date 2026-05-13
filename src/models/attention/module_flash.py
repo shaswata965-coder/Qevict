@@ -13,12 +13,6 @@ import torch
 from torch import nn
 from typing import Optional, Tuple
 
-# DynamicCache compatibility (transformers >= 4.43)
-try:
-    from transformers.cache_utils import DynamicLayer as _DynamicLayer
-except ImportError:
-    _DynamicLayer = None  # older transformers — legacy tuple path only
-
 from src.models.sticky_kv_logic_fast_attention import (
     _make_causal_mask,
     apply_rotary_pos_emb_single,
@@ -89,6 +83,35 @@ class STICKYLlamaAttention(nn.Module):
         self.kv_cache._clean_scores()
 
     # ------------------------------------------------------------------
+    # DynamicCache helpers (shared logic with module.py)
+    # ------------------------------------------------------------------
+
+    def _extract_from_hf_cache(self, past_key_value):
+        """Extract (key, value) tuple from HF DynamicCache, if applicable."""
+        if past_key_value is None or isinstance(past_key_value, tuple):
+            return False, None, past_key_value
+
+        hf_cache_obj = past_key_value
+        if hasattr(hf_cache_obj, "key_cache") and len(hf_cache_obj.key_cache) > self.layer_idx:
+            k = hf_cache_obj.key_cache[self.layer_idx]
+            v = hf_cache_obj.value_cache[self.layer_idx]
+            if k.numel() > 0:
+                return True, hf_cache_obj, (k, v)
+        return True, hf_cache_obj, None
+
+    def _write_to_hf_cache(self, hf_cache_obj, past_key_value):
+        """Write evicted (key, value) back into the HF DynamicCache."""
+        if hf_cache_obj is None or past_key_value is None:
+            return
+        if not hasattr(hf_cache_obj, "key_cache"):
+            return
+        while len(hf_cache_obj.key_cache) <= self.layer_idx:
+            hf_cache_obj.key_cache.append(torch.empty(0))
+            hf_cache_obj.value_cache.append(torch.empty(0))
+        hf_cache_obj.key_cache[self.layer_idx] = past_key_value[0]
+        hf_cache_obj.value_cache[self.layer_idx] = past_key_value[1]
+
+    # ------------------------------------------------------------------
     # Forward
     # ------------------------------------------------------------------
 
@@ -109,26 +132,20 @@ class STICKYLlamaAttention(nn.Module):
         if past_key_value is None and "past_key_values" in kwargs:
             past_key_value = kwargs["past_key_values"]
 
-        is_hf_cache = False
-        hf_cache_obj = None
-        if past_key_value is not None and not isinstance(past_key_value, tuple):
-            is_hf_cache = True
-            hf_cache_obj = past_key_value
-            # New API (transformers >= 4.43): cache.layers[layer_idx].keys / .values
-            if hasattr(hf_cache_obj, "layers") and len(hf_cache_obj.layers) > self.layer_idx:
-                layer_cache = hf_cache_obj.layers[self.layer_idx]
-                if getattr(layer_cache, "is_initialized", False):
-                    past_key_value = (layer_cache.keys, layer_cache.values)
-                else:
-                    past_key_value = None
-            else:
-                past_key_value = None
+        is_hf_cache, hf_cache_obj, past_key_value = self._extract_from_hf_cache(past_key_value)
 
-        # 1. Update position_ids
+        # 1. Position IDs — ALWAYS override using physical cache length.
+        #    With rerotation, cache keys are at contiguous positions [0..N-1].
+        #    New token(s) must be at position N (= phys_past_len).
         phys_past_len = past_key_value[0].shape[-2] if past_key_value is not None else 0
-        if position_ids is None:
+        if past_key_value is not None:
             position_ids = torch.arange(
-                phys_past_len, phys_past_len + q_len, dtype=torch.long, device=hidden_states.device
+                phys_past_len, phys_past_len + q_len,
+                dtype=torch.long, device=hidden_states.device
+            ).unsqueeze(0)
+        elif position_ids is None:
+            position_ids = torch.arange(
+                0, q_len, dtype=torch.long, device=hidden_states.device
             ).unsqueeze(0)
 
         # 2. Project Q, K, V
@@ -144,16 +161,11 @@ class STICKYLlamaAttention(nn.Module):
                 bsz, q_len, phys_past_len, query_states.dtype, query_states.device
             )
 
-        # 4. Rotary Positional Embeddings
-        position_embeddings = kwargs.get("position_embeddings", None)
-        if position_embeddings is not None:
-            cos, sin = position_embeddings
-        else:
-            kv_seq_len = key_states.shape[-2] + phys_past_len
-            cos, sin = self.rotary_emb(
-                value_states, seq_len=max(kv_seq_len, position_ids.max().item() + 1)
-            )
-        
+        # 4. Rotary Positional Embeddings — ALWAYS use our own rotary_emb
+        kv_seq_len = key_states.shape[-2] + phys_past_len
+        cos, sin = self.rotary_emb(
+            value_states, seq_len=max(kv_seq_len, position_ids.max().item() + 1)
+        )
         query_states = apply_rotary_pos_emb_single(query_states, cos, sin, position_ids)
         key_states = apply_rotary_pos_emb_single(key_states, cos, sin, position_ids)
 
@@ -177,9 +189,6 @@ class STICKYLlamaAttention(nn.Module):
             attn_weights_return = None
 
             # --- 2. Chunked tracking scores for cache eviction ---
-            # FIX A+E+F: Uses un-repeated key_states to avoid materialising
-            # key_states_rep (~134MB/layer). Remove full_attn_scores matrix
-            # logging to prevent OOM.
             accumulated_scores = compute_chunked_prefill_scores(
                 query_states, key_states,
                 q_len, phys_past_len,
@@ -238,16 +247,10 @@ class STICKYLlamaAttention(nn.Module):
         attn_output = attn_output.transpose(1, 2).contiguous().reshape(bsz, q_len, self.hidden_size)
         attn_output = self.o_proj(attn_output)
 
-        if use_cache and is_hf_cache and past_key_value is not None:
-            # New API (transformers >= 4.43): write back to cache.layers[idx].keys/.values
-            if hasattr(hf_cache_obj, "layers") and _DynamicLayer is not None:
-                while len(hf_cache_obj.layers) <= self.layer_idx:
-                    hf_cache_obj.layers.append(_DynamicLayer())
-                layer_cache = hf_cache_obj.layers[self.layer_idx]
-                layer_cache.keys = past_key_value[0]
-                layer_cache.values = past_key_value[1]
-                layer_cache.is_initialized = True
+        # 9. Write evicted cache back to DynamicCache (if applicable)
+        if use_cache and is_hf_cache:
+            self._write_to_hf_cache(hf_cache_obj, past_key_value)
             past_key_value = hf_cache_obj
 
-        # Always return exactly 2 elements, as expected by the latest transformers API
-        return attn_output, attn_weights_return
+        # Return 3 elements for compatibility with both old and new HF
+        return attn_output, attn_weights_return, past_key_value
