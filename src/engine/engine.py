@@ -325,6 +325,13 @@ def evaluate_dataset(name, dataset, seed, model, tokenizer, device):
         scorer_fn  = dataset2metric.get(name)
         metric_key = getattr(scorer_fn, "__name__", "score")
         m = {metric_key: raw_score}
+
+        # Diagnostic: show generated vs reference text for first 3 samples
+        if len(results) < 3:
+            print(f"[DIAG sample={len(results)}] score={raw_score:.4f}")
+            print(f"  GEN:  {repr(gen['text'][:200])}")
+            print(f"  REF:  {repr(refs[0][:200] if refs else 'N/A')}")
+            print(f"  tokens={gen['tokens']} time={gen['time']:.2f}s", flush=True)
         # -----------------------------------------------------------------
 
         throughput = (
