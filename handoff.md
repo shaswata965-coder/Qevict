@@ -2,11 +2,12 @@
 
 ## Current Status
 
-**Score: 0.1085** (LCC, seed=42, 20 samples)  
+**Score: 0.04** (LCC, seed=42, 20 samples) — down from 0.1085 after cache propagation fix  
 **Expected: 0.3265** (from `originalQevict/` running the same config)  
-**Gap: 3× regression — deterministic, not noise**
+**Cache propagation: WORKING** (confirmed via debug — eviction, growth, stable cache_id)  
+**Current blocker: Score WORSE with cache context than without (0.04 < 0.1085)**
 
-The modularized code runs without crashes but produces severely degraded output quality.
+The modularized code runs with correct cache mechanics, but the cached KV context degrades generation quality instead of improving it.
 
 ---
 
@@ -232,12 +233,172 @@ print(f"[DBG L0 step={n}] pos_ids={pos_ids[0,:3].tolist()}... global_tc={global_
 
 ---
 
+## Experiment Log — Conversation `58340480` (2026-05-13/14)
+
+### Experiment 1: Initial Diagnostic Run
+
+**Hypothesis:** Cache is not propagating between decode steps.
+**Debug output:**
+```
+[DBG L0 step=0] q_len=2794 cache_type=None past_kv_shape=None
+[DBG L0 step=1] q_len=1 cache_type=None past_kv_shape=None   ← CACHE IS NONE
+[DBG L0 step=2] q_len=1 cache_type=None past_kv_shape=None
+```
+**Result:** Confirmed. `past_key_value` is `None` on every decode step. Cache never flows.
+
+---
+
+### Experiment 2: Parameter Name Mismatch Fix (`past_key_value` → `past_key_values`)
+
+**Root cause found:** HF `LlamaDecoderLayer.forward()` calls `self.self_attn(past_key_values=...)` (plural). Our module accepted `past_key_value` (singular). Python silently absorbed the plural kwarg into `**kwargs`.
+
+**Fix applied to `module.py` and `module_flash.py`:**
+```python
+def forward(self, ..., past_key_value=None, ..., past_key_values=None, **kwargs):
+    if past_key_value is None and past_key_values is not None:
+        past_key_value = past_key_values
+```
+
+**Debug output after fix:**
+```
+[DBG L0 step=0] q_len=2794 cache_type=DynamicCache (id=XXX) past_kv_shape=None
+[DBG L0 step=1] q_len=1 cache_type=DynamicCache (id=XXX) past_kv_shape=None  ← STILL NONE
+```
+**Result:** Cache object now arrives (DynamicCache, not None), but `past_kv_shape=None` — the READ from cache returns nothing. **Partial fix only.**
+
+---
+
+### Experiment 3: DynamicCache API Change (`key_cache` → `layers[i].keys`)
+
+**Root cause found:** HF transformers on Kaggle uses a **completely rewritten** `DynamicCache`:
+- **Old HF (4.36-4.47):** `cache.key_cache[layer_idx]` / `cache.value_cache[layer_idx]` — plain lists of tensors
+- **New HF (≥4.48):** `cache.layers[layer_idx].keys` / `.values` — list of `DynamicLayer` objects
+- The old `hasattr(cache_obj, "key_cache")` returned `False` silently on the new API
+
+**Fix applied:** Rewrote `_read_kv_from_cache` and `_write_kv_to_cache` with three-tier dispatch:
+1. Check `hasattr(cache_obj, "layers") and hasattr(cache_obj, "update")` → new HF path
+2. Check `hasattr(cache_obj, "key_cache")` → old HF path
+3. Check `isinstance(cache_obj, tuple)` → legacy tuple path
+
+**Debug output after fix:**
+```
+[DBG L0 step=0] q_len=2794 cache_type=DynamicCache past_kv_shape=None          ← Prefill correct
+[DBG L0 step=1] q_len=1 cache_type=DynamicCache past_kv_shape=[1,8,634,64]     ← CACHE WORKS!
+[DBG L0 step=1] phys_past=634 concat_k_shape=[1,8,635,64]                      ← Full context
+[DBG L0 step=2] past_kv_shape=[1,8,635,64]                                     ← Growing
+```
+**Result:** Cache propagation fully working. Score: **0.04** — WORSE than 0.1085 without cache.
+
+---
+
+### Experiment 4: Score Regression Investigation (0.1085 → 0.04)
+
+**Hypothesis:** Cached KV is corrupted — context hurts the model.
+
+**Additional debug added:**
+- `attn_output` NaN check and norm print
+- `current_kv` vs `evicted_kv` shape comparison in writeback
+- `_dbg_count` counter fixed (was printing infinitely due to `<= 5` instead of `< 6`)
+- `_clean_cache()` now resets `_dbg_count = 0` between samples
+
+**Debug output:**
+```
+[DBG L0 output step=4] shape=[1,1,2048] has_nan=False norm=0.3320
+[DBG L0 writeback step=4] current_kv=[1,8,586,64] evicted_kv=[1,8,578,64]  ← Eviction: 586→578 (ω=8)
+[DBG L0 writeback step=4] current_kv=[1,8,579,64] evicted_kv=[1,8,579,64]  ← No eviction (under budget)
+...cache grows 579→586, evicts→578, grows again...
+```
+**Result:** All cache mechanics confirmed working:
+- ✅ Eviction fires correctly (586→578, Δ=ω=8)
+- ✅ Cache grows between evictions (578→579→...→586)
+- ✅ No NaN in attention output
+- ✅ Output norms reasonable and consistent (~0.33)
+- ❌ Score still 0.04
+
+---
+
+### Experiment 5: Text Diagnostic (PENDING)
+
+**Hypothesis:** Need to see what text the model is generating vs references.
+
+**Added to `engine.py`:** `[DIAG]` prints showing first 200 chars of generated text vs reference text for first 3 samples, plus per-sample score.
+
+**Status:** Deployed, awaiting results.
+
+---
+
+## Verified Facts About The Kaggle Environment
+
+| Fact | Evidence |
+|---|---|
+| HF creates `DynamicCache`, NOT `StickyCache` | `cache_type=DynamicCache` in debug |
+| `_get_cache()` is NOT called by HF | Never printed (StickyCache never used) |
+| `DynamicCache` uses `.layers[i].keys/values` API | `hasattr(cache, "key_cache")` is False |
+| `DynamicCache._seen_tokens` does NOT exist | `_seen_tokens=N/A` in debug |
+| `position_ids` from HF are correct | `position_ids=tensor([[2794]])` in prep_inputs |
+| Cache object identity is stable | Constant `cache_id` throughout generation |
+| `use_cache` is passed correctly | Model generates with cache enabled |
+
+---
+
+## Fixes Applied in Conversation `58340480`
+
+| File | Fix | Lines |
+|---|---|---|
+| `module.py` | Accept both `past_key_value` and `past_key_values` kwargs | forward() signature |
+| `module.py` | `_read_kv_from_cache`: 3-tier dispatch (new HF / old HF / tuple) | L34-75 |
+| `module.py` | `_write_kv_to_cache`: 3-tier dispatch with DynamicLayer creation | L77-122 |
+| `module.py` | `_clean_cache()` resets `_dbg_count = 0` | L165-167 |
+| `module.py` | Debug: attn_output NaN/norm check | L334-337 |
+| `module.py` | Debug: writeback shows current_kv vs evicted_kv shapes | L323-327 |
+| `module_flash.py` | Accept both `past_key_value` and `past_key_values` kwargs | forward() signature |
+| `engine.py` | `[DIAG]` text comparison: gen vs ref for first 3 samples | L328-334 |
+
+---
+
+## Eliminated Hypotheses
+
+| # | Hypothesis | Result |
+|---|---|---|
+| H1 | Cache object not created by HF | ❌ Eliminated — DynamicCache IS created |
+| H2 | Cache not propagating (kwarg swallowed) | ✅ Was the bug — fixed with dual kwarg |
+| H3 | Cache read failing (wrong API) | ✅ Was the bug — fixed with layers[i].keys |
+| H4 | NaN in attention output | ❌ Eliminated — `has_nan=False` always |
+| H5 | Eviction not firing | ❌ Eliminated — eviction cycle works (586→578) |
+| H6 | Output norms degenerate | ❌ Eliminated — norms ~0.33, consistent |
+| H7 | Wrong position_ids | ❌ Eliminated — `global_token_counter` overrides correctly |
+| H8 | `_seen_tokens` update needed | ❌ Eliminated — new DynamicCache doesn't use `_seen_tokens` |
+| H9 | Debug counter infinite loop | ✅ Was a bug — fixed but cosmetic only |
+
+## Open Hypotheses (Score 0.04 Regression)
+
+| # | Hypothesis | Status |
+|---|---|---|
+| H10 | Generated text is garbage (corrupted KV context) | Testing — [DIAG] prints pending |
+| H11 | Causal mask from HF conflicts with our internal mask | Untested — we discard HF mask, but might miss padding info |
+| H12 | Weight loading failure (random projections) | Unlikely — output norms are reasonable, prefill works |
+| H13 | RoPE mismatch between stored keys and new queries | Unlikely — same Llama3RotaryEmbedding used throughout |
+| H14 | `LOCAL_NUM_TOKENS=256` vs `P_RATIO=50` causes different budget | Known config diff — see Config section |
+
+---
+
+## Key Conversation IDs for Context
+
+| Conversation | Topic |
+|---|---|
+| `58340480-1c10-46ad-9e71-9b9b14daee41` | **Current** — Cache propagation fix, DynamicCache API fix, score regression |
+| `9eeeb5bc-4376-43cb-8904-b68e78813de2` | Bounds fixes + deep analysis, initial 0.1085 diagnosis |
+| `f4076259-e2d8-4d87-843c-a72271cedb6b` | DynamicCache bridge, absolute RoPE, autoregressive prep |
+| `5829662c-95bb-4548-8fcb-cedbd97d0857` | Rotary embedding dimension mismatch, multi-GPU sync |
+| `2c83889d-5648-4146-b3a5-74e18a85aa22` | DefensiveKV RoPE rerotation integration (later removed) |
+
+---
+
 ## Next Steps
 
-1. **Run evaluation with diagnostic prints** — read the `[DBG]` output
-2. **If `_get_cache` not called** → The fix is to ensure StickyCache is created. Options:
-   - Override `forward()` at the `LlamaForCausalLM` level to inject StickyCache
-   - Or set `past_key_values = StickyCache(...)` in `prepare_inputs_for_generation` when `past_key_values is None`
-3. **If cache_type=DynamicCache** → HF is wrapping our cache. Fix by ensuring `isinstance(StickyCache, Cache)` passes
-4. **If everything looks correct in diagnostics** → The issue may be in weight loading. Add a print showing `model.model.layers[0].self_attn.q_proj.weight[:3,:3]` before and after `from_pretrained` to verify weights loaded
-5. **After root cause is fixed** → Remove all `[DBG]` prints and re-run clean evaluation
+1. **Read `[DIAG]` output** — see generated text vs reference to determine if model outputs garbage or reasonable-but-wrong text
+2. **If garbage text** → The cached KV is corrupting attention. Investigate eviction score computation and whether the wrong tokens are being kept/evicted
+3. **If reasonable text** → The scoring metric might be misconfigured, or `LOCAL_NUM_TOKENS=256` config difference matters
+4. **Test `LOCAL_NUM_TOKENS=256`** — uncomment in `sticky_config.py` to match the original exactly
+5. **Verify weight loading** — add `print(model.model.layers[0].self_attn.q_proj.weight.sum())` to confirm pretrained weights loaded
+6. **After root cause is fixed** → Remove all `[DBG]` and `[DIAG]` prints
