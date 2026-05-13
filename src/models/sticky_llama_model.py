@@ -80,6 +80,7 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
         Accepting *args/**kwargs makes this forward-compatible with any HF version.
         """
         num_layers = self.config.num_hidden_layers
+        print(f"[DBG] _get_cache called — returning StickyCache(num_layers={num_layers})", flush=True)
         return StickyCache(num_layers=num_layers)
 
     def prepare_inputs_for_generation(
@@ -103,5 +104,13 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
         if past_key_values is not None:
             # Force single-token decode regardless of how super() sliced input_ids
             model_inputs["input_ids"] = input_ids[:, -1:]
+            if not hasattr(self, '_prep_dbg_count'):
+                self._prep_dbg_count = 0
+            if self._prep_dbg_count < 3:
+                cache_type = type(past_key_values).__name__
+                inp_shape = model_inputs['input_ids'].shape
+                pos_ids = model_inputs.get('position_ids', 'NOT_SET')
+                print(f"[DBG prep_inputs #{self._prep_dbg_count}] cache={cache_type} input_ids_shape={inp_shape} position_ids={pos_ids}", flush=True)
+                self._prep_dbg_count += 1
 
         return model_inputs

@@ -87,6 +87,9 @@ class STICKYLlamaAttention(nn.Module):
         **kwargs,
     ):
         bsz, q_len, _ = hidden_states.size()
+        _dbg = (self.layer_idx == 0 and hasattr(self, '_dbg_count'))
+        if self.layer_idx == 0 and not hasattr(self, '_dbg_count'):
+            self._dbg_count = 0
 
         # ------------------------------------------------------------------
         # 1. Extract (k, v) tuple from whatever cache type HF passed.
@@ -111,6 +114,11 @@ class STICKYLlamaAttention(nn.Module):
                 v = past_key_value.value_cache[self.layer_idx]
                 if k.numel() > 0:
                     past_kv = (k, v)
+
+        if self.layer_idx == 0 and self._dbg_count < 5:
+            cache_type = type(past_key_value).__name__ if past_key_value is not None else 'None'
+            past_kv_shape = past_kv[0].shape if past_kv is not None else 'None'
+            print(f"[DBG L0 step={self._dbg_count}] q_len={q_len} cache_type={cache_type} past_kv_shape={past_kv_shape}", flush=True)
 
         # ------------------------------------------------------------------
         # 2. Position IDs — use TRUE global sequence position.
@@ -166,6 +174,11 @@ class STICKYLlamaAttention(nn.Module):
             value_states = torch.cat([past_kv[1], value_states], dim=2)
 
         current_kv = (key_states, value_states) if use_cache else None
+
+        if self.layer_idx == 0 and self._dbg_count < 5:
+            has_qcache = hasattr(self.kv_cache, 'q_cache_k_quant') and self.kv_cache.q_cache_k_quant is not None
+            print(f"[DBG L0 step={self._dbg_count}] pos_ids={position_ids[0,:3].tolist()}... global_tc={self.kv_cache.global_token_counter.item()} phys_past={phys_past_len} has_qcache={has_qcache} concat_k_shape={key_states.shape}", flush=True)
+            self._dbg_count += 1
 
         # ------------------------------------------------------------------
         # 7. Attention logits
