@@ -432,7 +432,7 @@ class STICKYKVCache_LayerWise(nn.Module):
         new_k = torch.zeros(1, num_heads, new_seq_len, head_dim, device=device, dtype=dtype_fp)
         new_v = torch.zeros(1, num_heads, new_seq_len, head_dim, device=device, dtype=dtype_fp)
         new_lid_map = torch.full((num_heads, new_seq_len), -1, device=device, dtype=torch.long)
-        mapping = torch.full((num_heads, seq_len), -1.0, device=device, dtype=torch.float32)
+        mapping = torch.full((num_heads, seq_len), -1.0, device=device, dtype=torch.float32) if self._tracking_flag else None
 
         num_old_blocks = result.pre_num_old_blocks
         if num_old_blocks > 0:
@@ -460,7 +460,8 @@ class STICKYKVCache_LayerWise(nn.Module):
         new_k[0, :, :sink_tokens] = past_key_values[0][0, :, :sink_tokens]
         new_v[0, :, :sink_tokens] = past_key_values[1][0, :, :sink_tokens]
         new_lid_map[:, :sink_tokens] = em.logical_id_map[:, :sink_tokens]
-        mapping[:, :sink_tokens] = torch.arange(sink_tokens, device=device, dtype=torch.float32).unsqueeze(0)
+        if mapping is not None:
+            mapping[:, :sink_tokens] = torch.arange(sink_tokens, device=device, dtype=torch.float32).unsqueeze(0)
 
         # 2. Sticky windows — vectorised batch copy
         if found_in_main.any():
@@ -477,7 +478,8 @@ class STICKYKVCache_LayerWise(nn.Module):
             new_v[0, valid_heads, valid_target] = past_key_values[1][0, valid_heads, valid_phys]
             flat_final_ids = final_ids.unsqueeze(2).expand(-1, -1, omega).reshape(num_heads, -1)
             new_lid_map[valid_heads, valid_target] = flat_final_ids[mask].long()
-            mapping[valid_heads, valid_phys] = valid_target.to(mapping.dtype)
+            if mapping is not None:
+                mapping[valid_heads, valid_phys] = valid_target.to(mapping.dtype)
 
         # 3. Non-main windows (promoted from Q-cache or fallback via logical_id_map)
         not_in_main_mask = ~found_in_main
@@ -491,10 +493,13 @@ class STICKYKVCache_LayerWise(nn.Module):
                     new_k[0, h_idx, new_pos:new_pos + omega] = p_k
                     new_v[0, h_idx, new_pos:new_pos + omega] = p_v
                     new_lid_map[h_idx, new_pos:new_pos + omega] = wid_val
-                    # NOTE: Do NOT write to mapping for Q-cache promoted keys.
-                    # These keys are already un-rotated (base state from Q-cache).
-                    # Writing to mapping would cause the decode rerotation to
-                    # mistakenly un-rotate them again.
+                    if mapping is not None:
+                        span = find_logical_window_span(em.logical_id_map, omega, h_idx, wid_val, seq_len)
+                        if span is not None:
+                            old_s, old_e = span
+                            mapping[h_idx, old_s:old_e] = torch.arange(
+                                new_pos, new_pos + omega, device=device, dtype=torch.float32
+                            )
                 else:
                     span = find_logical_window_span(em.logical_id_map, omega, h_idx, wid_val, seq_len)
                     if span is not None:
@@ -502,7 +507,8 @@ class STICKYKVCache_LayerWise(nn.Module):
                         new_k[0, h_idx, new_pos:new_pos + omega] = past_key_values[0][0, h_idx, old_s:old_e]
                         new_v[0, h_idx, new_pos:new_pos + omega] = past_key_values[1][0, h_idx, old_s:old_e]
                         new_lid_map[h_idx, new_pos:new_pos + omega] = wid_val
-                        mapping[h_idx, old_s:old_e] = torch.arange(new_pos, new_pos + omega, device=device, dtype=torch.float32)
+                        if mapping is not None:
+                            mapping[h_idx, old_s:old_e] = torch.arange(new_pos, new_pos + omega, device=device, dtype=torch.float32)
                     else:
                         new_lid_map[h_idx, new_pos:new_pos + omega] = wid_val
 
@@ -515,9 +521,10 @@ class STICKYKVCache_LayerWise(nn.Module):
             new_v[0, :, new_local_start:new_local_start + actual_local] = past_key_values[1][0, :, old_local_start:old_local_start + actual_local]
             if _local_lids is not None:
                 new_lid_map[:, new_local_start:new_local_start + actual_local] = _local_lids[:actual_local].unsqueeze(0)
-            mapping[:, old_local_start:old_local_start + actual_local] = torch.arange(
-                new_local_start, new_local_start + actual_local, device=device, dtype=torch.float32
-            ).unsqueeze(0)
+            if mapping is not None:
+                mapping[:, old_local_start:old_local_start + actual_local] = torch.arange(
+                    new_local_start, new_local_start + actual_local, device=device, dtype=torch.float32
+                ).unsqueeze(0)
 
         return (new_k, new_v), new_lid_map, mapping
 
