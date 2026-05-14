@@ -63,8 +63,35 @@ class Llama3RotaryEmbedding(nn.Module):
             dtype=torch.get_default_dtype(),
         )
 
+    def _recompute_inv_freq(self, device):
+        """Recompute inv_freq from scalar hyperparameters.
+
+        inv_freq is a persistent=False buffer.  When a model is loaded with
+        ``device_map="auto"``, HF Accelerate materialises the buffer on the
+        target device via ``torch.empty_like``, leaving it filled with
+        uninitialised (often zero) memory.  This method regenerates it from
+        the stored scalar hyperparameters (self.base, self.dim), which are
+        plain Python numbers and are always correct after __init__.
+        """
+        inv_freq = 1.0 / (
+            self.base
+            ** (torch.arange(0, self.dim, 2, dtype=torch.int64).float().to(device) / self.dim)
+        )
+        self.register_buffer("inv_freq", inv_freq, persistent=False)
+
     def _set_cos_sin_cache(self, seq_len, device, dtype):
         self.max_seq_len_cached = seq_len
+
+        # Guard: inv_freq is a persistent=False buffer and may be garbage after
+        # an accelerate meta-device load.  If it looks invalid (all zeros or
+        # wrong device), regenerate it from hyperparameters before use.
+        if (
+            not hasattr(self, "inv_freq")
+            or self.inv_freq.device != torch.device(device)
+            or self.inv_freq.abs().sum().item() == 0.0
+        ):
+            self._recompute_inv_freq(device)
+
         t = torch.arange(self.max_seq_len_cached, device=device, dtype=self.inv_freq.dtype)
 
         inv_freq = self.inv_freq
@@ -91,8 +118,26 @@ class Llama3RotaryEmbedding(nn.Module):
         self.register_buffer("sin_cached", emb.sin().to(dtype), persistent=False)
 
     def forward(self, x, seq_len=None):
-        if seq_len > self.max_seq_len_cached:
-            self._set_cos_sin_cache(seq_len=seq_len, device=x.device, dtype=x.dtype)
+        # FIX: When models are loaded with device_map="auto", HF Accelerate creates the
+        # model on the 'meta' device.  persistent=False buffers (cos_cached, sin_cached,
+        # and inv_freq) are moved to the GPU as uninitialised memory (often zeros)
+        # instead of running the initialisation computation.
+        #
+        # Strategy:
+        #   1. On the very first real forward pass (_is_initialized is False), force a
+        #      full recompute.  _set_cos_sin_cache internally validates inv_freq and
+        #      regenerates it from scalar hyperparameters if it looks stale.
+        #   2. When the sequence grows beyond the cached length, extend the cache
+        #      (standard behaviour, also guarded by the same inv_freq validation).
+        #   3. _is_initialized is set only AFTER a successful recompute so a failed
+        #      compute doesn't silently skip future attempts.
+        if not getattr(self, "_is_initialized", False) or seq_len > self.max_seq_len_cached:
+            self._set_cos_sin_cache(
+                seq_len=max(seq_len, self.max_seq_len_cached),
+                device=x.device,
+                dtype=x.dtype,
+            )
+            self._is_initialized = True  # set only after successful recompute
 
         return (
             self.cos_cached[:seq_len].to(device=x.device, dtype=x.dtype),
