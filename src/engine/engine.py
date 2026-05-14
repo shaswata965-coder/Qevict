@@ -242,6 +242,10 @@ def generate(prompt, model, tokenizer, device, refs=None, task=None, **kwargs):
     gen_tokens = out.shape[1] - input_len
     raw_text   = tokenizer.decode(out[0][input_len:], skip_special_tokens=True)
 
+    # NEW: debug info
+    prompt_token_ids = inputs.input_ids[0].tolist()
+    gen_token_ids = out[0][input_len:input_len+10].tolist()
+
     clean_text = raw_text
 
     peak_mem = torch.cuda.max_memory_allocated() if device == "cuda" else 0
@@ -255,6 +259,8 @@ def generate(prompt, model, tokenizer, device, refs=None, task=None, **kwargs):
         "tokens":   gen_tokens,
         "time":     total_time,
         "peak_mem": peak_mem,
+        "prompt_token_ids": prompt_token_ids,
+        "gen_token_ids": gen_token_ids,
     }
 
 
@@ -335,7 +341,10 @@ def evaluate_dataset(name, dataset, seed, model, tokenizer, device):
             print(f"[DIAG sample={len(results)}] score={raw_score:.4f}")
             print(f"  GEN:  {repr(gen['text'][:200])}")
             print(f"  REF:  {repr(refs[0][:200] if refs else 'N/A')}")
-            print(f"  tokens={gen['tokens']} time={gen['time']:.2f}s", flush=True)
+            print(f"  tokens={gen['tokens']} time={gen['time']:.2f}s")
+            print(f"  [DIAG-SANITY] Prompt Len: {len(gen['prompt_token_ids'])}, First 5 Gen Token IDs: {gen['gen_token_ids'][:5]}")
+            global_tc = model._get_true_global_position() if hasattr(model, '_get_true_global_position') else 'N/A'
+            print(f"  [DIAG-SANITY] True sequence length (from L0 cache): {global_tc}", flush=True)
         # -----------------------------------------------------------------
 
         throughput = (

@@ -208,12 +208,11 @@ class STICKYLlamaAttention(nn.Module):
 
         # ------------------------------------------------------------------
         # 2. Position IDs — use TRUE global sequence position.
-        #
-        #    CRITICAL: the original sticky_llama_attention.py used
-        #    self.kv_cache.global_token_counter, NOT the physical cache
-        #    length.  Using phys_past_len causes wrong RoPE positions because
-        #    the cache is compressed by eviction (phys < true sequence pos).
         # ------------------------------------------------------------------
+        if self.layer_idx == 0 and self._dbg_count < 6:
+            orig_pos = position_ids.tolist() if position_ids is not None else 'None'
+            print(f"[DBG L0 step={self._dbg_count} POS-REASSIGN] Incoming position_ids={orig_pos}", flush=True)
+
         if past_kv is not None:
             global_past_len = int(self.kv_cache.global_token_counter.item())
             position_ids = torch.arange(
@@ -224,6 +223,9 @@ class STICKYLlamaAttention(nn.Module):
             position_ids = torch.arange(
                 0, q_len, dtype=torch.long, device=hidden_states.device,
             ).unsqueeze(0)
+
+        if self.layer_idx == 0 and self._dbg_count < 6:
+            print(f"[DBG L0 step={self._dbg_count} POS-REASSIGN] Assigned position_ids={position_ids.tolist()}", flush=True)
 
         # ------------------------------------------------------------------
         # 3. Project Q, K, V
@@ -242,6 +244,10 @@ class STICKYLlamaAttention(nn.Module):
                 bsz, q_len, phys_past_len, query_states.dtype, query_states.device
             )
 
+        if self.layer_idx == 0 and self._dbg_count < 6:
+            m_shape = attention_mask.shape if attention_mask is not None else 'None'
+            print(f"[DBG L0 step={self._dbg_count} ATTN-MASK] Generated local causal mask shape={m_shape} for phys_past_len={phys_past_len}", flush=True)
+
         # ------------------------------------------------------------------
         # 5. Rotary Positional Embeddings
         # ------------------------------------------------------------------
@@ -249,6 +255,10 @@ class STICKYLlamaAttention(nn.Module):
         cos, sin = self.rotary_emb(
             value_states, seq_len=max(kv_seq_len, position_ids.max().item() + 1)
         )
+        
+        if self.layer_idx == 0 and self._dbg_count < 6:
+            print(f"[DBG L0 step={self._dbg_count} ROPE] applying RoPE. position_ids.max={position_ids.max().item()}, cos.shape={cos.shape}, sin.shape={sin.shape}", flush=True)
+
         query_states = apply_rotary_pos_emb_single(query_states, cos, sin, position_ids)
         key_states   = apply_rotary_pos_emb_single(key_states,   cos, sin, position_ids)
 
@@ -256,6 +266,8 @@ class STICKYLlamaAttention(nn.Module):
         # 6. KV Cache Concatenation
         # ------------------------------------------------------------------
         if past_kv is not None:
+            if self.layer_idx == 0 and self._dbg_count < 6:
+                print(f"[DBG L0 step={self._dbg_count} CACHE-CAT] Contacting past_k={past_kv[0].shape} with new_k={key_states.shape}", flush=True)
             key_states   = torch.cat([past_kv[0], key_states],   dim=2)
             value_states = torch.cat([past_kv[1], value_states], dim=2)
 
@@ -273,6 +285,9 @@ class STICKYLlamaAttention(nn.Module):
             bsz, self.num_heads, self.num_key_value_heads,
             self.num_key_value_groups, q_len, self.head_dim,
         )
+
+        if self.layer_idx == 0 and self._dbg_count < 6:
+            print(f"[DBG L0 step={self._dbg_count} LOGITS] main_logits shape={main_logits.shape}. Max val={main_logits.max().item():.4f}, Min val={main_logits.min().item():.4f}", flush=True)
 
         if attention_mask is not None:
             main_logits = main_logits + attention_mask
