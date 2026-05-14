@@ -208,6 +208,10 @@ def generate(prompt, model, tokenizer, device, refs=None, task=None, **kwargs):
         for layer in model.model.layers:
             if hasattr(layer, "self_attn") and hasattr(layer.self_attn, "_clean_cache"):
                 layer.self_attn._clean_cache()
+    # Reset model-level debug counter between samples
+    if hasattr(model, '_prep_dbg_count'):
+        model._prep_dbg_count = 0
+
 
     if device == "cuda":
         torch.cuda.synchronize()

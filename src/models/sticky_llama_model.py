@@ -82,19 +82,35 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
     # If _get_cache IS called by a particular HF version, DynamicCache works
     # fine — our module updates it in place.
 
+    def _get_true_global_position(self):
+        """Read global_token_counter from layer 0's kv_cache.
+
+        Returns the TRUE number of tokens seen so far (not the compressed
+        physical cache length), or None if unavailable.
+        """
+        try:
+            layer0_attn = self.model.layers[0].self_attn
+            if hasattr(layer0_attn, 'kv_cache'):
+                return int(layer0_attn.kv_cache.global_token_counter.item())
+        except (IndexError, AttributeError):
+            pass
+        return None
+
     def prepare_inputs_for_generation(
         self, input_ids, past_key_values=None, attention_mask=None, inputs_embeds=None, **kwargs
     ):
         """Prepare inputs for autoregressive generation.
 
-        We call super() and then forcibly fix the input_ids slice:
-        after eviction the physical cache is shorter than the true sequence,
-        so super() may feed too many tokens — we always force single-token decode.
+        CRITICAL FIX: After eviction compresses the cache (e.g. 2800 → 578),
+        DynamicCache.get_seq_length() returns 578.  HF's super() method uses
+        this to compute cache_position=[578] and position_ids=[[578]], both
+        wildly wrong.  LlamaModel.forward() then pre-computes wrong
+        position_embeddings and a wrong causal mask from these values.
 
-        position_ids are intentionally NOT overridden here. They are computed
-        correctly inside STICKYLlamaAttention.forward() using global_token_counter
-        (the true sequence position), which is more accurate than anything we
-        can compute from the compressed cache length here.
+        Even though our attention module overrides position_ids internally,
+        the damage is done at the model level before our module is called.
+        We fix this by overriding cache_position and position_ids in the
+        model_inputs dict with the TRUE global sequence position.
         """
         model_inputs = super().prepare_inputs_for_generation(
             input_ids, past_key_values=past_key_values, attention_mask=attention_mask,
@@ -102,16 +118,40 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
         )
 
         if past_key_values is not None:
+            device = input_ids.device
+
             # Force single-token decode regardless of how super() sliced input_ids.
-            # This is necessary because the physical cache is compressed by eviction,
-            # so HF thinks fewer tokens have been processed and may try to feed
-            # multiple tokens.
+            # The physical cache is compressed by eviction, so HF thinks fewer
+            # tokens have been processed and may try to feed multiple tokens.
             model_inputs["input_ids"] = input_ids[:, -1:]
 
-            # Ensure the cache object flows through.  Some HF versions may
-            # create a new cache or drop it — we force it back.
+            # Ensure the cache object flows through.
             model_inputs["past_key_values"] = past_key_values
             model_inputs["use_cache"] = True
+
+            # ------------------------------------------------------------------
+            # FIX: Override cache_position and position_ids with the TRUE
+            # global sequence position from global_token_counter.
+            #
+            # Without this, HF computes:
+            #   cache_position = [578]      (from compressed cache)
+            #   position_ids   = [[578]]    (from cache_position)
+            # Both are wrong — the true position is ~2800+ for a 2800-token prompt.
+            #
+            # LlamaModel.forward() uses these to:
+            #   1. Pre-compute position_embeddings (wrong cos/sin for RoPE)
+            #   2. Compute _update_causal_mask (wrong mask dimensions/alignment)
+            # Our attention module overrides position_ids and mask internally,
+            # but it's safer to fix them here so ALL HF code sees correct values.
+            # ------------------------------------------------------------------
+            global_tc = self._get_true_global_position()
+            if global_tc is not None:
+                model_inputs["cache_position"] = torch.tensor(
+                    [global_tc], dtype=torch.long, device=device
+                )
+                model_inputs["position_ids"] = torch.tensor(
+                    [[global_tc]], dtype=torch.long, device=device
+                )
 
             if not hasattr(self, '_prep_dbg_count'):
                 self._prep_dbg_count = 0
@@ -120,7 +160,8 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
                 cache_id = id(past_key_values)
                 inp_shape = model_inputs['input_ids'].shape
                 pos_ids = model_inputs.get('position_ids', 'NOT_SET')
-                print(f"[DBG prep_inputs #{self._prep_dbg_count}] cache={cache_type} (id={cache_id}) input_ids_shape={inp_shape} position_ids={pos_ids}", flush=True)
+                cache_pos = model_inputs.get('cache_position', 'NOT_SET')
+                print(f"[DBG prep_inputs #{self._prep_dbg_count}] cache={cache_type} (id={cache_id}) input_ids_shape={inp_shape} position_ids={pos_ids} cache_position={cache_pos} global_tc={global_tc}", flush=True)
                 self._prep_dbg_count += 1
 
         return model_inputs

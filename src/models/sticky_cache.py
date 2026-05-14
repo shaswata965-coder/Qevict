@@ -1,23 +1,19 @@
 """
 models/sticky_cache.py
 ----------------------
-StickyCache — a minimal Cache subclass that carries our evicted KV tuples
-through Hugging Face's generate() loop without triggering DynamicCache's
-append/grow logic.
+Cache layer and cache wrapper for the Sticky KV-cache eviction pipeline.
 
-Design:
-  - Each layer slot holds a (keys, values) pair via two real mutable lists:
-    key_cache and value_cache.  These are the SAME names HF uses on
-    DynamicCache, so any HF code that reads cache.key_cache[layer_idx]
-    will work transparently.
-  - get_kv() returns None if the slot is empty (prefill step).
-  - set_kv() stores the post-eviction tensors for the next decode step.
-  - All HF Cache abstract methods are implemented as no-ops or stubs to
-    satisfy transformers >= 4.36 without breaking our eviction lifecycle.
+StickyDynamicLayer — a DynamicLayer subclass that tracks cumulative sequence
+length through eviction/compression cycles.  Modelled after HF's built-in
+DynamicSlidingWindowLayer (used by SinkCache), which solves the same problem:
+the physical KV tensor is shorter than the true sequence position.
 
-IMPORTANT: key_cache and value_cache MUST be real lists (not @property
-that creates throwaway copies) so that ``cache.key_cache[i] = tensor``
-actually persists.
+    get_seq_length()  → returns cumulative_length (true total tokens seen)
+    get_mask_sizes()  → returns sizes consistent with the physical KV tensor
+                        so that HF's create_causal_mask produces a mask whose
+                        last dimension matches the actual KV length.
+
+StickyCache — kept for backward compatibility.
 """
 
 from __future__ import annotations
@@ -27,11 +23,153 @@ from typing import Optional, Tuple, List
 import torch
 
 try:
+    from transformers.cache_utils import DynamicLayer
+except ImportError:
+    DynamicLayer = None  # type: ignore
+
+try:
     from transformers import Cache
 except ImportError:
-    # Fallback for environments where transformers is unavailable at import time
     Cache = object  # type: ignore
 
+
+# =========================================================================
+# StickyDynamicLayer — drop-in replacement for DynamicLayer
+# =========================================================================
+
+# Inherit from DynamicLayer so HF's isinstance(layer, CacheLayerMixin)
+# checks pass correctly in Cache.get_seq_length() and Cache.get_mask_sizes().
+_StickyBase = DynamicLayer if DynamicLayer is not None else object
+
+
+class StickyDynamicLayer(_StickyBase):
+    """A cache layer that tracks true cumulative sequence length through
+    eviction, following the same pattern as HF's DynamicSlidingWindowLayer.
+
+    Key invariant:
+        cumulative_length  = total tokens ever appended (grows monotonically)
+        keys.shape[-2]     = physical KV length (may shrink after eviction)
+        get_seq_length()   = cumulative_length  (used by HF for position_ids)
+    """
+
+    is_sliding = False
+    is_compileable = False
+
+    def __init__(self):
+        if _StickyBase is not object:
+            super().__init__()
+        self.keys: torch.Tensor | None = None
+        self.values: torch.Tensor | None = None
+        self.is_initialized = False
+        self.cumulative_length = 0
+
+    def __repr__(self):
+        phys = self.keys.shape[-2] if self.is_initialized and self.keys is not None and self.keys.numel() > 0 else 0
+        return f"StickyDynamicLayer(cumulative={self.cumulative_length}, physical={phys})"
+
+    # ----- core API used by HF -----
+
+    def update(
+        self, key_states: torch.Tensor, value_states: torch.Tensor, *args, **kwargs
+    ) -> tuple:
+        """Standard DynamicLayer-compatible update.
+
+        Called by the default LlamaAttention — but our STICKYLlamaAttention
+        does NOT call this.  Implemented for API compatibility only.
+        """
+        if not self.is_initialized:
+            self.lazy_initialization(key_states, value_states)
+
+        self.cumulative_length += key_states.shape[-2]
+        self.keys = torch.cat([self.keys, key_states], dim=-2)
+        self.values = torch.cat([self.values, value_states], dim=-2)
+        return self.keys, self.values
+
+    def lazy_initialization(self, key_states: torch.Tensor, value_states: torch.Tensor) -> None:
+        self.dtype = key_states.dtype
+        self.device = key_states.device
+        self.keys = torch.tensor([], dtype=self.dtype, device=self.device)
+        self.values = torch.tensor([], dtype=self.dtype, device=self.device)
+        self.is_initialized = True
+
+    def get_seq_length(self) -> int:
+        """Return the TRUE cumulative sequence length (not compressed physical)."""
+        return self.cumulative_length
+
+    def get_mask_sizes(self, query_length: int) -> tuple:
+        """Return mask dimensions consistent with the PHYSICAL KV tensor.
+
+        HF uses these to build the causal_mask tensor that is passed to the
+        attention module.  Since our module discards this mask and builds its
+        own, the dimensions don't need to match the true sequence length —
+        they need to match the physical KV so that any code that does NOT
+        discard the mask (e.g. debugging, future HF changes) stays safe.
+        """
+        phys_len = 0
+        if self.is_initialized and self.keys is not None and self.keys.numel() > 0:
+            phys_len = self.keys.shape[-2]
+        kv_length = phys_len + query_length
+        kv_offset = 0
+        return kv_length, kv_offset
+
+    def get_max_cache_shape(self) -> int:
+        return -1  # unbounded
+
+    # ----- Sticky-specific API -----
+
+    def set_evicted_kv(self, keys: torch.Tensor, values: torch.Tensor) -> None:
+        """Replace physical KV after eviction WITHOUT resetting cumulative_length."""
+        self.keys = keys
+        self.values = values
+        self.is_initialized = True
+
+    def increment_cumulative(self, n: int) -> None:
+        """Increment cumulative_length (called after prefill or decode append)."""
+        self.cumulative_length += n
+
+    # ----- Standard DynamicLayer API stubs -----
+
+    def offload(self):
+        if self.is_initialized and self.keys is not None:
+            self.keys = self.keys.to("cpu", non_blocking=True)
+            self.values = self.values.to("cpu", non_blocking=True)
+
+    def prefetch(self):
+        pass
+
+    def reset(self) -> None:
+        if self.is_initialized and self.keys is not None:
+            self.keys.zero_()
+            self.values.zero_()
+        self.cumulative_length = 0
+
+    def reorder_cache(self, beam_idx: torch.LongTensor) -> None:
+        if self.is_initialized and self.keys is not None and self.keys.numel() > 0:
+            self.keys = self.keys.index_select(0, beam_idx.to(self.keys.device))
+            self.values = self.values.index_select(0, beam_idx.to(self.values.device))
+
+    def crop(self, max_length: int) -> None:
+        if self.is_initialized and self.keys is not None:
+            if max_length < 0:
+                max_length = self.get_seq_length() - abs(max_length)
+            if self.keys.shape[-2] > max_length:
+                self.keys = self.keys[..., :max_length, :]
+                self.values = self.values[..., :max_length, :]
+
+    def batch_repeat_interleave(self, repeats: int) -> None:
+        if self.is_initialized and self.keys is not None and self.keys.numel() > 0:
+            self.keys = self.keys.repeat_interleave(repeats, dim=0)
+            self.values = self.values.repeat_interleave(repeats, dim=0)
+
+    def batch_select_indices(self, indices: torch.Tensor) -> None:
+        if self.is_initialized and self.keys is not None and self.keys.numel() > 0:
+            self.keys = self.keys[indices, ...]
+            self.values = self.values[indices, ...]
+
+
+# =========================================================================
+# StickyCache — legacy wrapper (kept for backward compatibility)
+# =========================================================================
 
 class StickyCache(Cache):
     """Transparent KV-tensor carrier for the Sticky eviction pipeline.

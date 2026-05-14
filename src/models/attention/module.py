@@ -35,7 +35,7 @@ def _read_kv_from_cache(cache_obj, layer_idx):
     """Extract (k, v) from any HF-compatible cache object.
 
     Supports three storage layouts:
-      1. NEW HF (>= 4.48): cache.layers[layer_idx].keys / .values  (DynamicLayer objects)
+      1. NEW HF (>= 4.48): cache.layers[layer_idx] — DynamicLayer or StickyDynamicLayer
       2. OLD HF (4.36-4.47): cache.key_cache[layer_idx] / cache.value_cache[layer_idx]
       3. Legacy tuple: (k_tensor, v_tensor) passed directly
 
@@ -46,8 +46,7 @@ def _read_kv_from_cache(cache_obj, layer_idx):
     if cache_obj is None:
         return None, None
 
-    # NEW HF: DynamicCache has .layers list of DynamicLayer objects
-    # Each DynamicLayer stores .keys and .values as tensors
+    # NEW HF: DynamicCache has .layers list of DynamicLayer/StickyDynamicLayer objects
     if hasattr(cache_obj, "layers") and hasattr(cache_obj, "update"):
         if len(cache_obj.layers) > layer_idx:
             layer = cache_obj.layers[layer_idx]
@@ -77,35 +76,39 @@ def _read_kv_from_cache(cache_obj, layer_idx):
 def _write_kv_to_cache(cache_obj, layer_idx, evicted_kv, global_token_counter):
     """Write evicted KV back into the cache object in-place.
 
-    Supports both NEW HF (layers[i].keys/values) and OLD HF (key_cache/value_cache).
+    For NEW HF (>= 4.48 with DynamicCache.layers):
+      Replaces DynamicLayer with StickyDynamicLayer on first write.
+      StickyDynamicLayer tracks cumulative_length (true sequence position)
+      separately from the physical KV tensor length, following the same
+      pattern as HF's built-in DynamicSlidingWindowLayer / SinkCache.
+
+    For OLD HF (key_cache / value_cache lists):
+      Direct tensor assignment + _seen_tokens update.
     """
     if cache_obj is None or evicted_kv is None:
         return
 
-    # NEW HF: DynamicCache has .layers list of DynamicLayer objects
+    # NEW HF: DynamicCache has .layers list
     if hasattr(cache_obj, "layers") and hasattr(cache_obj, "update"):
-        # Grow layers if needed (DynamicCache normally does this via update())
+        from src.models.sticky_cache import StickyDynamicLayer
+
+        # Grow layers list if needed
         while len(cache_obj.layers) <= layer_idx:
-            # Import DynamicLayer from the layer_class_to_replicate or create one
-            if hasattr(cache_obj, "layer_class_to_replicate") and cache_obj.layer_class_to_replicate is not None:
-                cache_obj.layers.append(cache_obj.layer_class_to_replicate())
-            else:
-                # Fallback: try to import DynamicLayer
-                try:
-                    from transformers.cache_utils import DynamicLayer
-                    cache_obj.layers.append(DynamicLayer())
-                except ImportError:
-                    # Absolute fallback: create a simple namespace
-                    class _FakeLayer:
-                        keys = None
-                        values = None
-                        is_initialized = False
-                    cache_obj.layers.append(_FakeLayer())
+            cache_obj.layers.append(StickyDynamicLayer())
 
         layer = cache_obj.layers[layer_idx]
-        layer.keys = evicted_kv[0]
-        layer.values = evicted_kv[1]
-        layer.is_initialized = True
+
+        # Replace vanilla DynamicLayer with StickyDynamicLayer on first write.
+        # This gives us cumulative_length tracking through eviction.
+        if not isinstance(layer, StickyDynamicLayer):
+            sticky_layer = StickyDynamicLayer()
+            cache_obj.layers[layer_idx] = sticky_layer
+            layer = sticky_layer
+
+        # Write the evicted KV without resetting cumulative_length
+        layer.set_evicted_kv(evicted_kv[0], evicted_kv[1])
+        # Set cumulative_length to the true global position
+        layer.cumulative_length = int(global_token_counter)
         return
 
     # OLD HF: DynamicCache has .key_cache / .value_cache lists
@@ -197,7 +200,7 @@ class STICKYLlamaAttention(nn.Module):
         # ------------------------------------------------------------------
         past_kv, cache_obj = _read_kv_from_cache(past_key_value, self.layer_idx)
 
-        if self.layer_idx == 0 and self._dbg_count < 5:
+        if self.layer_idx == 0 and self._dbg_count < 6:
             cache_type = type(past_key_value).__name__ if past_key_value is not None else 'None'
             cache_id = id(past_key_value) if past_key_value is not None else 0
             past_kv_shape = past_kv[0].shape if past_kv is not None else 'None'
@@ -258,10 +261,9 @@ class STICKYLlamaAttention(nn.Module):
 
         current_kv = (key_states, value_states) if use_cache else None
 
-        if self.layer_idx == 0 and self._dbg_count < 5:
+        if self.layer_idx == 0 and self._dbg_count < 6:
             has_qcache = hasattr(self.kv_cache, 'q_cache_k_quant') and self.kv_cache.q_cache_k_quant is not None
             print(f"[DBG L0 step={self._dbg_count}] pos_ids={position_ids[0,:3].tolist()}... global_tc={self.kv_cache.global_token_counter.item()} phys_past={phys_past_len} has_qcache={has_qcache} concat_k_shape={key_states.shape}", flush=True)
-            self._dbg_count += 1
 
         # ------------------------------------------------------------------
         # 7. Attention logits
@@ -324,7 +326,7 @@ class STICKYLlamaAttention(nn.Module):
             if self.layer_idx == 0 and self._dbg_count < 6:
                 ev_shape = evicted_kv[0].shape if evicted_kv is not None else 'None'
                 ck_shape = current_kv[0].shape if current_kv is not None else 'None'
-                print(f"[DBG L0 writeback step={self._dbg_count - 1}] cache_id={id(cache_obj)} current_kv={ck_shape} evicted_kv={ev_shape} global_tc={global_tc}", flush=True)
+                print(f"[DBG L0 writeback step={self._dbg_count}] cache_id={id(cache_obj)} current_kv={ck_shape} evicted_kv={ev_shape} global_tc={global_tc}", flush=True)
 
         # ------------------------------------------------------------------
         # 11. Output projection
@@ -335,7 +337,8 @@ class STICKYLlamaAttention(nn.Module):
         if self.layer_idx == 0 and hasattr(self, '_dbg_count') and self._dbg_count < 6:
             has_nan = torch.isnan(attn_output).any().item()
             out_norm = attn_output.norm().item()
-            print(f"[DBG L0 output step={self._dbg_count - 1}] shape={attn_output.shape} has_nan={has_nan} norm={out_norm:.4f}", flush=True)
+            print(f"[DBG L0 output step={self._dbg_count}] shape={attn_output.shape} has_nan={has_nan} norm={out_norm:.4f}", flush=True)
+            self._dbg_count += 1  # Increment AFTER all debug prints for this step
 
         # HF >= 4.46: LlamaDecoderLayer does `hidden_states, _ = self.self_attn(...)`
         # The cache is updated in-place above — it is NOT returned here.
