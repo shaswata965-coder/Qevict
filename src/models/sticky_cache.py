@@ -70,7 +70,8 @@ class StickyDynamicLayer(_StickyBase):
     # ----- core API used by HF -----
 
     def update(
-        self, key_states: torch.Tensor, value_states: torch.Tensor, *args, **kwargs
+        self, key_states: torch.Tensor, value_states: torch.Tensor,
+        cache_kwargs: dict = None,
     ) -> tuple:
         """Standard DynamicLayer-compatible update.
 
@@ -78,14 +79,14 @@ class StickyDynamicLayer(_StickyBase):
         does NOT call this.  Implemented for API compatibility only.
         """
         if not self.is_initialized:
-            self.lazy_initialization(key_states, value_states)
+            self.lazy_initialization(key_states)
 
         self.cumulative_length += key_states.shape[-2]
         self.keys = torch.cat([self.keys, key_states], dim=-2)
         self.values = torch.cat([self.values, value_states], dim=-2)
         return self.keys, self.values
 
-    def lazy_initialization(self, key_states: torch.Tensor, value_states: torch.Tensor) -> None:
+    def lazy_initialization(self, key_states: torch.Tensor) -> None:
         self.dtype = key_states.dtype
         self.device = key_states.device
         self.keys = torch.tensor([], dtype=self.dtype, device=self.device)
@@ -96,15 +97,19 @@ class StickyDynamicLayer(_StickyBase):
         """Return the TRUE cumulative sequence length (not compressed physical)."""
         return self.cumulative_length
 
-    def get_mask_sizes(self, query_length: int) -> tuple:
+    def get_mask_sizes(self, cache_position: torch.Tensor) -> tuple:
         """Return mask dimensions consistent with the PHYSICAL KV tensor.
 
-        HF uses these to build the causal_mask tensor that is passed to the
-        attention module.  Since our module discards this mask and builds its
-        own, the dimensions don't need to match the true sequence length —
-        they need to match the physical KV so that any code that does NOT
-        discard the mask (e.g. debugging, future HF changes) stays safe.
+        HF 4.57 passes cache_position (a tensor), not query_length (an int).
+        We derive query_length from cache_position.shape[0], matching
+        DynamicLayer's exact implementation.
+
+        Uses physical KV length (not cumulative) so the mask dimensions
+        match the actual KV tensors our module works with.  Our module
+        discards this mask anyway, but correct dimensions prevent crashes
+        in sdpa_mask / torch.arange calls.
         """
+        query_length = cache_position.shape[0]
         phys_len = 0
         if self.is_initialized and self.keys is not None and self.keys.numel() > 0:
             phys_len = self.keys.shape[-2]
