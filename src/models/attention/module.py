@@ -200,18 +200,10 @@ class STICKYLlamaAttention(nn.Module):
         # ------------------------------------------------------------------
         past_kv, cache_obj = _read_kv_from_cache(past_key_value, self.layer_idx)
 
-        if self.layer_idx == 0 and self._dbg_count < 6:
-            cache_type = type(past_key_value).__name__ if past_key_value is not None else 'None'
-            cache_id = id(past_key_value) if past_key_value is not None else 0
-            past_kv_shape = past_kv[0].shape if past_kv is not None else 'None'
-            print(f"[DBG L0 step={self._dbg_count}] q_len={q_len} cache_type={cache_type} (id={cache_id}) past_kv_shape={past_kv_shape}", flush=True)
 
         # ------------------------------------------------------------------
         # 2. Position IDs — use TRUE global sequence position.
         # ------------------------------------------------------------------
-        if self.layer_idx == 0 and self._dbg_count < 6:
-            orig_pos = position_ids.tolist() if position_ids is not None else 'None'
-            print(f"[DBG L0 step={self._dbg_count} POS-REASSIGN] Incoming position_ids={orig_pos}", flush=True)
 
         if past_kv is not None:
             global_past_len = int(self.kv_cache.global_token_counter.item())
@@ -224,8 +216,6 @@ class STICKYLlamaAttention(nn.Module):
                 0, q_len, dtype=torch.long, device=hidden_states.device,
             ).unsqueeze(0)
 
-        if self.layer_idx == 0 and self._dbg_count < 6:
-            print(f"[DBG L0 step={self._dbg_count} POS-REASSIGN] Assigned position_ids={position_ids.tolist()}", flush=True)
 
         # ------------------------------------------------------------------
         # 3. Project Q, K, V
@@ -244,9 +234,6 @@ class STICKYLlamaAttention(nn.Module):
                 bsz, q_len, phys_past_len, query_states.dtype, query_states.device
             )
 
-        if self.layer_idx == 0 and self._dbg_count < 6:
-            m_shape = attention_mask.shape if attention_mask is not None else 'None'
-            print(f"[DBG L0 step={self._dbg_count} ATTN-MASK] Generated local causal mask shape={m_shape} for phys_past_len={phys_past_len}", flush=True)
 
         # ------------------------------------------------------------------
         # 5. Rotary Positional Embeddings
@@ -256,26 +243,24 @@ class STICKYLlamaAttention(nn.Module):
             value_states, seq_len=max(kv_seq_len, position_ids.max().item() + 1)
         )
         
+
         if self.layer_idx == 0 and self._dbg_count < 6:
-            print(f"[DBG L0 step={self._dbg_count} ROPE] applying RoPE. position_ids.max={position_ids.max().item()}, cos.shape={cos.shape}, sin.shape={sin.shape}", flush=True)
+            print(f"[DBG L0 step={self._dbg_count} PRE-ROPE] Q_norm={query_states.norm().item():.4e}, K_norm={key_states.norm().item():.4e}", flush=True)
 
         query_states = apply_rotary_pos_emb_single(query_states, cos, sin, position_ids)
         key_states   = apply_rotary_pos_emb_single(key_states,   cos, sin, position_ids)
+
+        if self.layer_idx == 0 and self._dbg_count < 6:
+            print(f"[DBG L0 step={self._dbg_count} POST-ROPE] Q_norm={query_states.norm().item():.4e}, K_norm={key_states.norm().item():.4e}", flush=True)
 
         # ------------------------------------------------------------------
         # 6. KV Cache Concatenation
         # ------------------------------------------------------------------
         if past_kv is not None:
-            if self.layer_idx == 0 and self._dbg_count < 6:
-                print(f"[DBG L0 step={self._dbg_count} CACHE-CAT] Contacting past_k={past_kv[0].shape} with new_k={key_states.shape}", flush=True)
             key_states   = torch.cat([past_kv[0], key_states],   dim=2)
             value_states = torch.cat([past_kv[1], value_states], dim=2)
 
         current_kv = (key_states, value_states) if use_cache else None
-
-        if self.layer_idx == 0 and self._dbg_count < 6:
-            has_qcache = hasattr(self.kv_cache, 'q_cache_k_quant') and self.kv_cache.q_cache_k_quant is not None
-            print(f"[DBG L0 step={self._dbg_count}] pos_ids={position_ids[0,:3].tolist()}... global_tc={self.kv_cache.global_token_counter.item()} phys_past={phys_past_len} has_qcache={has_qcache} concat_k_shape={key_states.shape}", flush=True)
 
         # ------------------------------------------------------------------
         # 7. Attention logits
@@ -287,7 +272,12 @@ class STICKYLlamaAttention(nn.Module):
         )
 
         if self.layer_idx == 0 and self._dbg_count < 6:
-            print(f"[DBG L0 step={self._dbg_count} LOGITS] main_logits shape={main_logits.shape}. Max val={main_logits.max().item():.4f}, Min val={main_logits.min().item():.4f}", flush=True)
+            q_w_n = self.q_proj.weight.norm().item()
+            k_w_n = self.k_proj.weight.norm().item()
+            q_n = query_states.norm().item()
+            k_n = key_states.norm().item()
+            m_n = main_logits.norm().item()
+            print(f"[DBG L0 step={self._dbg_count} LOGITS] q_proj_W={q_w_n:.4e}, k_proj_W={k_w_n:.4e}, Q_norm={q_n:.4e}, K_norm={k_n:.4e}, logits_norm={m_n:.4e}. Max val={main_logits.max().item():.4e}, Min val={main_logits.min().item():.4e}", flush=True)
 
         if attention_mask is not None:
             main_logits = main_logits + attention_mask
@@ -337,11 +327,6 @@ class STICKYLlamaAttention(nn.Module):
         if use_cache and evicted_kv is not None and cache_obj is not None:
             global_tc = int(self.kv_cache.global_token_counter.item())
             _write_kv_to_cache(cache_obj, self.layer_idx, evicted_kv, global_tc)
-            
-            if self.layer_idx == 0 and self._dbg_count < 6:
-                ev_shape = evicted_kv[0].shape if evicted_kv is not None else 'None'
-                ck_shape = current_kv[0].shape if current_kv is not None else 'None'
-                print(f"[DBG L0 writeback step={self._dbg_count}] cache_id={id(cache_obj)} current_kv={ck_shape} evicted_kv={ev_shape} global_tc={global_tc}", flush=True)
 
         # ------------------------------------------------------------------
         # 11. Output projection
@@ -350,9 +335,6 @@ class STICKYLlamaAttention(nn.Module):
         attn_output = self.o_proj(attn_output)
 
         if self.layer_idx == 0 and hasattr(self, '_dbg_count') and self._dbg_count < 6:
-            has_nan = torch.isnan(attn_output).any().item()
-            out_norm = attn_output.norm().item()
-            print(f"[DBG L0 output step={self._dbg_count}] shape={attn_output.shape} has_nan={has_nan} norm={out_norm:.4f}", flush=True)
             self._dbg_count += 1  # Increment AFTER all debug prints for this step
 
         # HF >= 4.46: LlamaDecoderLayer does `hidden_states, _ = self.self_attn(...)`

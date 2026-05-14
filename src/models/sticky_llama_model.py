@@ -153,15 +153,5 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
                     [[global_tc]], dtype=torch.long, device=device
                 )
 
-            if not hasattr(self, '_prep_dbg_count'):
-                self._prep_dbg_count = 0
-            if self._prep_dbg_count < 3:
-                cache_type = type(past_key_values).__name__
-                cache_id = id(past_key_values)
-                inp_shape = model_inputs['input_ids'].shape
-                pos_ids = model_inputs.get('position_ids', 'NOT_SET')
-                cache_pos = model_inputs.get('cache_position', 'NOT_SET')
-                print(f"[DBG prep_inputs #{self._prep_dbg_count}] cache={cache_type} (id={cache_id}) input_ids_shape={inp_shape} position_ids={pos_ids} cache_position={cache_pos} global_tc={global_tc}", flush=True)
-                self._prep_dbg_count += 1
 
         return model_inputs
