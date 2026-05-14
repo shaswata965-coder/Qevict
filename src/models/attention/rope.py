@@ -83,10 +83,16 @@ class Llama3RotaryEmbedding(nn.Module):
         self.max_seq_len_cached = seq_len
 
         # Guard: inv_freq is a persistent=False buffer and may be garbage after
-        # an accelerate meta-device load.  If it looks invalid (all zeros or
-        # wrong device), regenerate it from hyperparameters before use.
+        # an accelerate meta-device load.  If it looks invalid (missing, on the
+        # wrong device, on the meta device, or all-zeros), regenerate it from
+        # the scalar hyperparameters before use.
+        #
+        # IMPORTANT: the meta-device check MUST come before .item() — calling
+        # .item() on a meta tensor raises "Tensor.item() cannot be called on
+        # meta tensors" and would crash model loading under init_empty_weights().
         if (
             not hasattr(self, "inv_freq")
+            or self.inv_freq.device.type == "meta"
             or self.inv_freq.device != torch.device(device)
             or self.inv_freq.abs().sum().item() == 0.0
         ):
