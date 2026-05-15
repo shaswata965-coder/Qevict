@@ -256,9 +256,22 @@ class STICKYLlamaAttention(nn.Module):
         # ------------------------------------------------------------------
         # 6. KV Cache Concatenation
         # ------------------------------------------------------------------
+        step1_phys_before = past_kv[0].shape[-2] if past_kv is not None else 0
         if past_kv is not None:
             key_states   = torch.cat([past_kv[0], key_states],   dim=2)
             value_states = torch.cat([past_kv[1], value_states], dim=2)
+
+        if self.layer_idx == 0 and self._dbg_count == 1:
+            cache_type = type(past_key_value).__name__ if past_key_value is not None else "None"
+            pos_dbg = position_ids.detach().flatten().tolist()
+            global_tc = int(self.kv_cache.global_token_counter.item())
+            print(
+                f"[STEP1-CACHE current] cache_type={cache_type} "
+                f"q_len={q_len} pos_ids={pos_dbg} global_tc={global_tc} "
+                f"phys_before={step1_phys_before} concat_len={key_states.shape[-2]} "
+                f"use_cache={use_cache}",
+                flush=True,
+            )
 
         current_kv = (key_states, value_states) if use_cache else None
 

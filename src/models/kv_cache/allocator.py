@@ -78,7 +78,7 @@ def compute_budget(
 
     bf16_target = (remaining * (100 - q_ratio)) // 100
     q_mem_target = remaining - bf16_target          # complement avoids double rounding
-    q_int4_target = round(q_mem_target * compression_ratio)  # round() avoids int() floor on e.g. 507.999
+    q_int4_target = int(q_mem_target * compression_ratio)
 
     # Ceiling division: absorbs partial window rather than recycling to local.
     k_windows = -(-bf16_target // omega)

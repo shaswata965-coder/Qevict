@@ -14,7 +14,7 @@ P_RATIO = 50 # Local/Recent window size as % of total budget
 # This carves out from the window allocation: e.g., if windows would get 25% of the
 # budget, setting Q_RATIO=10 means windows get 15% and quantized slots get 10%.
 # Int8 provides ~2x compression vs fp16, so the effective q-cache capacity is ~2x q_num.
-Q_RATIO = 20  # Set to e.g. 10 for 10% of total budget allocated to quantized evicted tokens
+Q_RATIO = 10  # Set to e.g. 10 for 10% of total budget allocated to quantized evicted tokens
 
 # Quantization bit-width for the evicted (q-cache) tokens.
 # 8 → standard INT8 (1 byte/element, 2x compression vs fp16) — backward-compatible default.

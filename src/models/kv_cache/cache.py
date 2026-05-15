@@ -382,6 +382,10 @@ class STICKYKVCache_LayerWise(nn.Module):
 
         # Early-exit if no physical eviction needed
         if self.total_cache_ratio == 100:
+            em.window_scores.fill_(float("nan"))
+            em.window_scores[:, :result.curr_k, 0] = result.winner_scores
+            em.window_scores[:, :result.curr_k, 1] = result.winner_ids
+            em.window_scores[:, :result.curr_k, 2] = result.winner_ids
             em.reset_decode_counters(seq_len)
             return past_key_values
 
