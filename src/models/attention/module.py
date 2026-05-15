@@ -292,13 +292,24 @@ class STICKYLlamaAttention(nn.Module):
             gen_step = getattr(em, "gen_step", "NA")
             q_cache_ids = getattr(self.kv_cache, "q_cache_ids", None)
             q_windows = q_cache_ids.shape[1] if q_cache_ids is not None else 0
+            qcache_active = (
+                hasattr(self.kv_cache, "q_cache_k_quant")
+                and self.kv_cache.q_cache_k_quant is not None
+            )
             cache_seen = getattr(past_key_value, "_seen_tokens", "NA") if past_key_value is not None else "NA"
+            cache_position = kwargs.get("cache_position", None)
+            cache_position_dbg = (
+                cache_position.detach().flatten().tolist()
+                if torch.is_tensor(cache_position)
+                else cache_position
+            )
             print(
                 f"[DECODE-TRACE current PRE step={self._dbg_count}] "
                 f"cache_type={cache_type} q_len={q_len} pos_ids={pos_dbg} global_tc={global_tc} "
                 f"phys_before={step1_phys_before} concat_len={key_states.shape[-2]} "
                 f"tokens_since={tokens_since} gen_step={gen_step} q_windows={q_windows} "
-                f"cache_seen={cache_seen} use_cache={use_cache}",
+                f"qcache_active={qcache_active} cache_seen={cache_seen} "
+                f"cache_position={cache_position_dbg} use_cache={use_cache}",
                 flush=True,
             )
 
@@ -320,6 +331,14 @@ class STICKYLlamaAttention(nn.Module):
             k_n = key_states.norm().item()
             m_n = main_logits.norm().item()
             print(f"[DBG L0 step={self._dbg_count} LOGITS] q_proj_W={q_w_n:.4e}, k_proj_W={k_w_n:.4e}, Q_norm={q_n:.4e}, K_norm={k_n:.4e}, logits_norm={m_n:.4e}. Max val={main_logits.max().item():.4e}, Min val={main_logits.min().item():.4e}", flush=True)
+
+        if trace_decode:
+            print(
+                f"[DECODE-TRACE current LOGITS step={self._dbg_count}] "
+                f"main_shape={tuple(main_logits.shape)} logits_norm={main_logits.norm().item():.4e} "
+                f"max={main_logits.max().item():.4e} min={main_logits.min().item():.4e}",
+                flush=True,
+            )
 
         if attention_mask is not None:
             main_logits = main_logits + attention_mask
@@ -346,6 +365,17 @@ class STICKYLlamaAttention(nn.Module):
                     bsz, self.num_heads, self.num_key_value_heads,
                     self.num_key_value_groups, q_len, self.head_dim,
                 )
+
+        if trace_decode:
+            scores_shape = tuple(scores_for_cache.shape) if scores_for_cache is not None else None
+            q_scores_shape = tuple(q_scores_for_cache.shape) if q_scores_for_cache is not None else None
+            out_scores_shape = tuple(attn_weights_for_output.shape) if attn_weights_for_output is not None else None
+            print(
+                f"[DECODE-TRACE current SCORES step={self._dbg_count}] "
+                f"scores_shape={scores_shape} q_scores_shape={q_scores_shape} "
+                f"output_attn_shape={out_scores_shape}",
+                flush=True,
+            )
 
         # ------------------------------------------------------------------
         # 9. Sticky KV Cache Eviction
