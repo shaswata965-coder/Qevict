@@ -38,6 +38,10 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
         safe_config = copy.deepcopy(config)
         if hasattr(safe_config, "rope_scaling"):
             safe_config.rope_scaling = None
+        safe_config.rope_parameters = {
+            "rope_type": "default",
+            "rope_theta": getattr(safe_config, "rope_theta", 10000.0),
+        }
 
         super().__init__(safe_config)
 
