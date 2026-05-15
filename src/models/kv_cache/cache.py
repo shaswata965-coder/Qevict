@@ -286,6 +286,16 @@ class STICKYKVCache_LayerWise(nn.Module):
             self.cache_size = (
                 self.omega * (1 + self.local_num + self.k_windows + self.start_idx) + self.sink_tokens
             )
+
+            # Parity/debug mode: R_RATIO=100 must mean the prefill KV cache is
+            # left byte-for-byte intact.  The decode path already bypasses
+            # physical eviction at 100%, but without this guard prefill still
+            # rebuilt the cache through the sticky-window machinery, which made
+            # "no eviction" runs diverge before the first generated token.
+            if self.total_cache_ratio >= 100 and self.q_ratio == 0:
+                self._prefill_done = True
+                return past_key_values
+
             self.eviction_manager.num_of_tokens_without_eviction += seq_len
             for h in range(self.num_heads):
                 self.eviction_manager.prompt_boundary[h] = seq_len - 1
