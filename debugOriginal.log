@@ -1,0 +1,39 @@
+Evaluating dataset: lcc
+Targeting 20 samples (dataset size: 500, filtering >5000 tokens)
+⚠️  Prompt too long (11436 tokens > 5000), skipping example
+/usr/local/lib/python3.12/dist-packages/transformers/generation/configuration_utils.py:386: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.9` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
+  warnings.warn(
+2026-05-15 08:07:26.086676: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1778832446.107301     185 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1778832446.113755     185 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1778832446.129722     185 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1778832446.129759     185 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1778832446.129764     185 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1778832446.129767     185 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[2794] global_tc=2794 phys_before=634 concat_len=635 use_cache=True
+/usr/local/lib/python3.12/dist-packages/transformers/generation/configuration_utils.py:386: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.9` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
+  warnings.warn(
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[2129] global_tc=2129 phys_before=513 concat_len=514 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[1675] global_tc=1675 phys_before=427 concat_len=428 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[2296] global_tc=2296 phys_before=544 concat_len=545 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[3789] global_tc=3789 phys_before=821 concat_len=822 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[2546] global_tc=2546 phys_before=586 concat_len=587 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[3503] global_tc=3503 phys_before=767 concat_len=768 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[2257] global_tc=2257 phys_before=529 concat_len=530 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[1664] global_tc=1664 phys_before=416 concat_len=417 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[4361] global_tc=4361 phys_before=937 concat_len=938 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[2261] global_tc=2261 phys_before=533 concat_len=534 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[3367] global_tc=3367 phys_before=743 concat_len=744 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[1952] global_tc=1952 phys_before=480 concat_len=481 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[2037] global_tc=2037 phys_before=493 concat_len=494 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[1962] global_tc=1962 phys_before=482 concat_len=483 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[3473] global_tc=3473 phys_before=769 concat_len=770 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[2507] global_tc=2507 phys_before=579 concat_len=580 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[3194] global_tc=3194 phys_before=714 concat_len=715 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[1456] global_tc=1456 phys_before=376 concat_len=377 use_cache=True
+[STEP1-CACHE original] cache_type=tuple q_len=1 pos_ids=[2509] global_tc=2509 phys_before=581 concat_len=582 use_cache=True
+   📊 lcc (seed=42) | code_sim_score: 0.3265 ± 0.1188
+Completed lcc (Seed 42): Evaluated 20 instances.
+
+All evaluations complete. Results saved to long_bench_sticky_metrics.npz

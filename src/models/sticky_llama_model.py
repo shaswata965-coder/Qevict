@@ -96,6 +96,7 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
 
         if past_key_values is not None:
             device = input_ids.device
+            prep_dbg_count = getattr(self, "_dbg_prepare_count", 0)
 
             # Force single-token decode regardless of how super() sliced input_ids.
             # The physical cache is compressed by eviction, so HF may otherwise
@@ -114,5 +115,19 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
                 model_inputs["position_ids"] = torch.tensor(
                     [[global_tc]], dtype=torch.long, device=device
                 )
+
+            if prep_dbg_count < 10:
+                cache_pos = model_inputs.get("cache_position", None)
+                pos_ids = model_inputs.get("position_ids", None)
+                cache_pos_dbg = cache_pos.detach().flatten().tolist() if torch.is_tensor(cache_pos) else cache_pos
+                pos_ids_dbg = pos_ids.detach().flatten().tolist() if torch.is_tensor(pos_ids) else pos_ids
+                print(
+                    f"[GEN-PREP current step={prep_dbg_count}] "
+                    f"input_len={input_ids.shape[1]} sliced_len={model_inputs['input_ids'].shape[1]} "
+                    f"global_tc={global_tc} cache_position={cache_pos_dbg} position_ids={pos_ids_dbg} "
+                    f"pkv_type={type(past_key_values).__name__}",
+                    flush=True,
+                )
+            self._dbg_prepare_count = prep_dbg_count + 1
 
         return model_inputs

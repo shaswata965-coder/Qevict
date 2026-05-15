@@ -261,6 +261,16 @@ class STICKYLlamaAttention(nn.Module):
             key_states   = torch.cat([past_kv[0], key_states],   dim=2)
             value_states = torch.cat([past_kv[1], value_states], dim=2)
 
+        trace_decode = False
+        if self.layer_idx == 0 and q_len == 1:
+            em = getattr(self.kv_cache, "eviction_manager", None)
+            tokens_since = getattr(em, "tokens_since_last_review", None)
+            omega = getattr(self.kv_cache, "omega", None)
+            trace_decode = (
+                self._dbg_count <= 10
+                or (omega is not None and tokens_since in {max(int(omega) - 1, 0), int(omega)})
+            )
+
         if self.layer_idx == 0 and self._dbg_count == 1:
             cache_type = type(past_key_value).__name__ if past_key_value is not None else "None"
             pos_dbg = position_ids.detach().flatten().tolist()
@@ -270,6 +280,25 @@ class STICKYLlamaAttention(nn.Module):
                 f"q_len={q_len} pos_ids={pos_dbg} global_tc={global_tc} "
                 f"phys_before={step1_phys_before} concat_len={key_states.shape[-2]} "
                 f"use_cache={use_cache}",
+                flush=True,
+            )
+
+        if trace_decode:
+            cache_type = type(past_key_value).__name__ if past_key_value is not None else "None"
+            pos_dbg = position_ids.detach().flatten().tolist()
+            global_tc = int(self.kv_cache.global_token_counter.item())
+            em = getattr(self.kv_cache, "eviction_manager", None)
+            tokens_since = getattr(em, "tokens_since_last_review", "NA")
+            gen_step = getattr(em, "gen_step", "NA")
+            q_cache_ids = getattr(self.kv_cache, "q_cache_ids", None)
+            q_windows = q_cache_ids.shape[1] if q_cache_ids is not None else 0
+            cache_seen = getattr(past_key_value, "_seen_tokens", "NA") if past_key_value is not None else "NA"
+            print(
+                f"[DECODE-TRACE current PRE step={self._dbg_count}] "
+                f"cache_type={cache_type} q_len={q_len} pos_ids={pos_dbg} global_tc={global_tc} "
+                f"phys_before={step1_phys_before} concat_len={key_states.shape[-2]} "
+                f"tokens_since={tokens_since} gen_step={gen_step} q_windows={q_windows} "
+                f"cache_seen={cache_seen} use_cache={use_cache}",
                 flush=True,
             )
 
@@ -329,6 +358,21 @@ class STICKYLlamaAttention(nn.Module):
             q_attn_scores=q_scores_for_cache.detach() if q_scores_for_cache is not None else None,
         )
 
+        if trace_decode:
+            em = getattr(self.kv_cache, "eviction_manager", None)
+            tokens_since = getattr(em, "tokens_since_last_review", "NA")
+            gen_step = getattr(em, "gen_step", "NA")
+            q_cache_ids = getattr(self.kv_cache, "q_cache_ids", None)
+            q_windows = q_cache_ids.shape[1] if q_cache_ids is not None else 0
+            evicted_len = evicted_kv[0].shape[-2] if evicted_kv is not None else "None"
+            global_tc = int(self.kv_cache.global_token_counter.item())
+            print(
+                f"[DECODE-TRACE current POST step={self._dbg_count}] "
+                f"global_tc={global_tc} evicted_len={evicted_len} "
+                f"tokens_since={tokens_since} gen_step={gen_step} q_windows={q_windows}",
+                flush=True,
+            )
+
         # ------------------------------------------------------------------
         # 10. Write evicted KV back into the cache object IN PLACE.
         #
@@ -340,6 +384,19 @@ class STICKYLlamaAttention(nn.Module):
         if use_cache and evicted_kv is not None and cache_obj is not None:
             global_tc = int(self.kv_cache.global_token_counter.item())
             _write_kv_to_cache(cache_obj, self.layer_idx, evicted_kv, global_tc)
+            if trace_decode:
+                try:
+                    cache_seq_len = cache_obj.get_seq_length(self.layer_idx)
+                except TypeError:
+                    cache_seq_len = cache_obj.get_seq_length()
+                except AttributeError:
+                    cache_seq_len = "NA"
+                cache_seen = getattr(cache_obj, "_seen_tokens", "NA")
+                print(
+                    f"[DECODE-TRACE current WRITE step={self._dbg_count}] "
+                    f"cache_seq_len={cache_seq_len} cache_seen={cache_seen} written_global_tc={global_tc}",
+                    flush=True,
+                )
 
         # ------------------------------------------------------------------
         # 11. Output projection
@@ -347,7 +404,7 @@ class STICKYLlamaAttention(nn.Module):
         attn_output = attn_output.transpose(1, 2).contiguous().reshape(bsz, q_len, self.hidden_size)
         attn_output = self.o_proj(attn_output)
 
-        if self.layer_idx == 0 and hasattr(self, '_dbg_count') and self._dbg_count < 6:
+        if self.layer_idx == 0 and hasattr(self, '_dbg_count'):
             self._dbg_count += 1  # Increment AFTER all debug prints for this step
 
         # HF >= 4.46: LlamaDecoderLayer does `hidden_states, _ = self.self_attn(...)`

@@ -7,13 +7,13 @@
 /usr/local/lib/python3.12/dist-packages/jieba/finalseg/__init__.py:78: SyntaxWarning: invalid escape sequence '\.'
   re_skip = re.compile("([a-zA-Z0-9]+(?:\.\d+)?%?)")
 Loading StickyLlama (Cumulative Attention) from /kaggle/input/models/metaresearch/llama-3.2/transformers/1b-instruct/1...
-Loaded STICKYLlamaForCausalLM — 16 layers, backend=sdpa
-Loading weights: 100%|█| 146/146 [00:23<00:00,  6.13it/s, Materializing param=mo
+Loaded STICKYLlamaForCausalLM - 16 layers, backend=sdpa
+Loading weights: 100%|█| 146/146 [00:33<00:00,  4.36it/s, Materializing param=mo
 STICKYLlamaForCausalLM LOAD REPORT from: /kaggle/input/models/metaresearch/llama-3.2/transformers/1b-instruct/1
 Key                                                          | Status  | 
 -------------------------------------------------------------+---------+-
-model.layers.{0...15}.self_attn.kv_cache.sink_indices        | MISSING | 
 model.layers.{0...15}.self_attn.kv_cache.window_to_token_map | MISSING | 
+model.layers.{0...15}.self_attn.kv_cache.sink_indices        | MISSING | 
 
 Notes:
 - MISSING	:those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
@@ -30,380 +30,400 @@ The following generation flags are not valid and may be ignored: ['top_p']. Set 
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=4.0800e+03, K_norm=2.1760e+03, logits_norm=5.6064e+04. Max val=1.9125e+01, Min val=-3.7500e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=7.4000e+01, K_norm=4.1750e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=7.4000e+01, K_norm=4.1750e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.4000e+01, K_norm=1.8400e+03, logits_norm=9.4400e+02. Max val=1.2000e+01, Min val=-9.2500e+00
-[DBG L0 step=2 PRE-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.9500e+01, K_norm=1.8400e+03, logits_norm=8.2800e+02. Max val=9.0000e+00, Min val=-7.5000e+00
-[DBG L0 step=3 PRE-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.9500e+01, K_norm=1.8400e+03, logits_norm=7.6800e+02. Max val=9.7500e+00, Min val=-7.4688e+00
-[DBG L0 step=4 PRE-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.9500e+01, K_norm=1.8400e+03, logits_norm=8.0400e+02. Max val=9.7500e+00, Min val=-7.3438e+00
-[DBG L0 step=5 PRE-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.9500e+01, K_norm=1.8400e+03, logits_norm=9.4400e+02. Max val=9.6875e+00, Min val=-7.2812e+00
-[DIAG sample=0] score=0.0200
-  GEN:  '            else else else else else else else else else else else else else else else else else else else else else else else else else else else else else else else else else else else else else els'
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[2794] global_tc=2794 phys_before=634 concat_len=635 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.4000e+01, K_norm=9.6800e+02, logits_norm=4.7800e+02. Max val=1.2000e+01, Min val=-2.0000e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=4.9500e+01, K_norm=3.2750e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=4.9500e+01, K_norm=3.2750e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=4.9500e+01, K_norm=9.6800e+02, logits_norm=3.4800e+02. Max val=5.6875e+00, Min val=-1.3750e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=8.2000e+01, K_norm=4.3750e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=8.2000e+01, K_norm=4.3750e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.2000e+01, K_norm=9.6800e+02, logits_norm=4.6200e+02. Max val=1.0500e+01, Min val=-2.0125e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=5.2000e+01, K_norm=3.2750e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=5.2000e+01, K_norm=3.2750e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.2000e+01, K_norm=9.7200e+02, logits_norm=3.5400e+02. Max val=8.7500e+00, Min val=-1.5938e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=8.7000e+01, K_norm=4.5500e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=8.7000e+01, K_norm=4.5500e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.7000e+01, K_norm=9.7200e+02, logits_norm=5.3600e+02. Max val=1.1875e+01, Min val=-2.3250e+01
+[DIAG sample=0] score=0.2100
+  GEN:  "           elper{ Preference=='shared! redeemed or die()  # ok\n\t\t\t&\\quad\nimport numpy of a =  # w, a_ = of type1\nimport numpy of {0,  # e_ = None\nimport numpy of {0:0x00_ =  #"
   REF:  '\t\t\tZ_.add_edge(e_u, e_v, **data.copy())'
-  tokens=64 time=7.13s
-  [DIAG-SANITY] Prompt Len: 2794, First 5 Gen Token IDs: [310, 775, 775, 775, 775]
+  tokens=64 time=8.87s
+  [DIAG-SANITY] Prompt Len: 2794, First 5 Gen Token IDs: [310, 3020, 90, 49905, 28]
   [DIAG-SANITY] True sequence length (from L0 cache): 2857
 [DBG L0 step=0 PRE-ROPE] Q_norm=3.5840e+03, K_norm=1.9200e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=3.5840e+03, K_norm=1.9200e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=3.5840e+03, K_norm=1.9200e+03, logits_norm=4.2496e+04. Max val=1.9000e+01, Min val=-3.3500e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=8.1000e+01, K_norm=5.1000e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=8.1000e+01, K_norm=5.1250e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.1000e+01, K_norm=1.6080e+03, logits_norm=1.1280e+03. Max val=1.2938e+01, Min val=-1.2312e+01
-[DBG L0 step=2 PRE-ROPE] Q_norm=7.9000e+01, K_norm=4.4750e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=7.9000e+01, K_norm=4.4750e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.9000e+01, K_norm=1.6080e+03, logits_norm=9.5600e+02. Max val=1.0500e+01, Min val=-8.8750e+00
-[DBG L0 step=3 PRE-ROPE] Q_norm=6.9000e+01, K_norm=4.1500e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=6.9000e+01, K_norm=4.1500e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.9000e+01, K_norm=1.6080e+03, logits_norm=8.2400e+02. Max val=1.1688e+01, Min val=-7.6562e+00
-[DBG L0 step=4 PRE-ROPE] Q_norm=9.7500e+01, K_norm=4.6500e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=9.7500e+01, K_norm=4.6500e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=9.7500e+01, K_norm=1.6080e+03, logits_norm=9.8400e+02. Max val=1.4438e+01, Min val=-1.0500e+01
-[DBG L0 step=5 PRE-ROPE] Q_norm=7.4000e+01, K_norm=4.5500e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=7.4500e+01, K_norm=4.5500e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.4500e+01, K_norm=1.6080e+03, logits_norm=1.2320e+03. Max val=9.5625e+00, Min val=-1.3625e+01
-[DIAG sample=1] score=0.0000
-  GEN:  '#=" => deflibr Penny0000000000000\\ub Angeles002002201000000000000||uple 000.101110000000000000001001001001001000000000000000000000|113 att\\\\\\\\ufe\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\'
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[2129] global_tc=2129 phys_before=513 concat_len=514 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.1000e+01, K_norm=8.7200e+02, logits_norm=5.1600e+02. Max val=1.2938e+01, Min val=-1.7625e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=6.6500e+01, K_norm=3.7250e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=6.6500e+01, K_norm=3.7250e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.6500e+01, K_norm=8.7200e+02, logits_norm=4.0600e+02. Max val=1.0125e+01, Min val=-1.6500e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=9.1500e+01, K_norm=4.4000e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=9.1500e+01, K_norm=4.4000e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=9.1500e+01, K_norm=8.7600e+02, logits_norm=4.9200e+02. Max val=1.1188e+01, Min val=-1.7875e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=6.2000e+01, K_norm=3.4000e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=6.2000e+01, K_norm=3.4000e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.2000e+01, K_norm=8.7600e+02, logits_norm=4.0000e+02. Max val=8.4375e+00, Min val=-1.4312e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=6.2750e+01, K_norm=3.7750e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=6.2750e+01, K_norm=3.7750e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.2750e+01, K_norm=8.7600e+02, logits_norm=4.4800e+02. Max val=7.3750e+00, Min val=-1.4688e+01
+[DIAG sample=1] score=0.0900
+  GEN:  "#now!'))\n Angeles-done1 the.int()  #  # +\n__python\n```\n## Step  # t = 1\n    #  # t = 1\n    #  # t = 1\n    #  # t = 1\n    #  # t = 1"
   REF:  "        rfd, fd, cfilename   = open_tmp_file('rwseektest.wav')"
-  tokens=64 time=4.90s
-  [DIAG-SANITY] Prompt Len: 2129, First 5 Gen Token IDs: [2, 429, 591, 220, 755]
+  tokens=64 time=6.76s
+  [DIAG-SANITY] Prompt Len: 2129, First 5 Gen Token IDs: [2, 3409, 0, 7132, 12167]
   [DIAG-SANITY] True sequence length (from L0 cache): 2192
 [DBG L0 step=0 PRE-ROPE] Q_norm=3.0080e+03, K_norm=1.6880e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=3.0080e+03, K_norm=1.6880e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=3.0080e+03, K_norm=1.6880e+03, logits_norm=3.2768e+04. Max val=1.9125e+01, Min val=-3.3250e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=7.7000e+01, K_norm=4.9500e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=7.7000e+01, K_norm=4.9500e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7000e+01, K_norm=1.4240e+03, logits_norm=7.8800e+02. Max val=1.2438e+01, Min val=-1.1438e+01
-[DBG L0 step=2 PRE-ROPE] Q_norm=8.6500e+01, K_norm=4.6250e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=8.6500e+01, K_norm=4.6250e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.6500e+01, K_norm=1.4240e+03, logits_norm=7.4400e+02. Max val=1.5438e+01, Min val=-1.0750e+01
-[DBG L0 step=3 PRE-ROPE] Q_norm=7.4500e+01, K_norm=4.2250e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=7.4500e+01, K_norm=4.2250e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.4500e+01, K_norm=1.4320e+03, logits_norm=5.9600e+02. Max val=1.2688e+01, Min val=-8.5625e+00
-[DBG L0 step=4 PRE-ROPE] Q_norm=7.4500e+01, K_norm=4.2250e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=7.4500e+01, K_norm=4.2250e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.4500e+01, K_norm=1.4320e+03, logits_norm=4.8800e+02. Max val=1.0125e+01, Min val=-8.5625e+00
-[DBG L0 step=5 PRE-ROPE] Q_norm=5.4500e+01, K_norm=3.4500e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=5.4750e+01, K_norm=3.4500e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.4750e+01, K_norm=1.4320e+03, logits_norm=4.1800e+02. Max val=6.0000e+00, Min val=-7.8438e+00
-[DIAG sample=2] score=0.0000
-  GEN:  '``[000000xm +\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\�\\\\\\\\\\\\\\\\://://github.github.github.github.github.github.com/\t\t\t foreach loop loop{{{Histogram Wire\\\\\\\\://://127.01_00400000000000000000000000000000000000000000000'
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[1675] global_tc=1675 phys_before=427 concat_len=428 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7000e+01, K_norm=7.8800e+02, logits_norm=4.0200e+02. Max val=1.2438e+01, Min val=-1.8625e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=7.2000e+01, K_norm=3.7500e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=7.2000e+01, K_norm=3.7500e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.2000e+01, K_norm=7.8800e+02, logits_norm=4.0400e+02. Max val=8.7500e+00, Min val=-1.9750e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=8.7000e+01, K_norm=4.5500e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=8.7500e+01, K_norm=4.5500e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.7500e+01, K_norm=7.9200e+02, logits_norm=4.1600e+02. Max val=1.2250e+01, Min val=-1.8375e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=5.4250e+01, K_norm=3.3000e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=5.4250e+01, K_norm=3.3000e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.4250e+01, K_norm=7.9200e+02, logits_norm=2.6400e+02. Max val=9.1250e+00, Min val=-1.2938e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=5.9500e+01, K_norm=3.5750e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=5.9500e+01, K_norm=3.5750e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.9500e+01, K_norm=7.9200e+02, logits_norm=2.8000e+02. Max val=8.1875e+00, Min val=-1.1938e+01
+[DIAG sample=2] score=0.4700
+  GEN:  "``�=~/ workplace/2011))\n        for i in loop\n```\n\n**Step 2: 1. **2.**  # 1\n    #!/usr/bin/tip:python\n![](https://i'm not sure how to handle exceptions are not allowed\n![](https://"
   REF:  '            if e.text == language:'
-  tokens=64 time=4.25s
-  [DIAG-SANITY] Prompt Len: 1675, First 5 Gen Token IDs: [14196, 58, 931, 931, 56871]
+  tokens=64 time=6.06s
+  [DIAG-SANITY] Prompt Len: 1675, First 5 Gen Token IDs: [14196, 224, 28, 23549, 27465]
   [DIAG-SANITY] True sequence length (from L0 cache): 1738
 [DBG L0 step=0 PRE-ROPE] Q_norm=3.5200e+03, K_norm=1.9440e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=3.5200e+03, K_norm=1.9440e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=3.5200e+03, K_norm=1.9440e+03, logits_norm=4.6080e+04. Max val=2.0125e+01, Min val=-3.5750e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=8.1500e+01, K_norm=4.4000e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=8.2000e+01, K_norm=4.4000e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.2000e+01, K_norm=1.6720e+03, logits_norm=8.1200e+02. Max val=1.3250e+01, Min val=-8.8125e+00
-[DBG L0 step=2 PRE-ROPE] Q_norm=5.2750e+01, K_norm=3.1375e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=5.2750e+01, K_norm=3.1375e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.2750e+01, K_norm=1.6720e+03, logits_norm=7.7200e+02. Max val=5.1562e+00, Min val=-1.0312e+01
-[DBG L0 step=3 PRE-ROPE] Q_norm=5.4750e+01, K_norm=3.8750e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=5.4750e+01, K_norm=3.8750e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.4750e+01, K_norm=1.6720e+03, logits_norm=6.9600e+02. Max val=6.5312e+00, Min val=-7.6875e+00
-[DBG L0 step=4 PRE-ROPE] Q_norm=7.7000e+01, K_norm=4.0250e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=7.7000e+01, K_norm=4.0250e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7000e+01, K_norm=1.6720e+03, logits_norm=6.4400e+02. Max val=1.0438e+01, Min val=-8.3750e+00
-[DBG L0 step=5 PRE-ROPE] Q_norm=5.5500e+01, K_norm=3.1125e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=5.5750e+01, K_norm=3.1125e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.5750e+01, K_norm=1.6720e+03, logits_norm=3.7400e+02. Max val=6.2812e+00, Min val=-6.5938e+00
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[2296] global_tc=2296 phys_before=544 concat_len=545 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.2000e+01, K_norm=8.7600e+02, logits_norm=4.5400e+02. Max val=1.3250e+01, Min val=-2.4500e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=7.1500e+01, K_norm=3.6750e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=7.1500e+01, K_norm=3.6750e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.1500e+01, K_norm=8.7600e+02, logits_norm=4.9400e+02. Max val=7.8750e+00, Min val=-2.0250e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=7.3500e+01, K_norm=3.8500e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=7.3500e+01, K_norm=3.8500e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.3500e+01, K_norm=8.8000e+02, logits_norm=4.6000e+02. Max val=9.0000e+00, Min val=-2.3625e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=5.6250e+01, K_norm=3.2250e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=5.6250e+01, K_norm=3.2250e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.6250e+01, K_norm=8.8000e+02, logits_norm=3.2200e+02. Max val=6.9062e+00, Min val=-1.9750e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=6.5500e+01, K_norm=4.1750e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=6.5500e+01, K_norm=4.1750e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.5500e+01, K_norm=8.8000e+02, logits_norm=3.5200e+02. Max val=1.0688e+01, Min val=-2.2375e+01
 [DBG L0 step=0 PRE-ROPE] Q_norm=4.6080e+03, K_norm=2.5120e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=4.6080e+03, K_norm=2.5120e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=4.6080e+03, K_norm=2.5120e+03, logits_norm=7.6288e+04. Max val=1.9125e+01, Min val=-3.5000e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=7.7000e+01, K_norm=4.9500e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=7.7000e+01, K_norm=4.9500e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7000e+01, K_norm=2.1440e+03, logits_norm=1.0200e+03. Max val=1.2438e+01, Min val=-6.7188e+00
-[DBG L0 step=2 PRE-ROPE] Q_norm=7.4500e+01, K_norm=4.0750e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=7.4500e+01, K_norm=4.0750e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.4500e+01, K_norm=2.1440e+03, logits_norm=1.0200e+03. Max val=1.2438e+01, Min val=-6.3125e+00
-[DBG L0 step=3 PRE-ROPE] Q_norm=8.1500e+01, K_norm=4.4000e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=8.1500e+01, K_norm=4.4000e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.1500e+01, K_norm=2.1440e+03, logits_norm=1.2400e+03. Max val=1.3250e+01, Min val=-8.0000e+00
-[DBG L0 step=4 PRE-ROPE] Q_norm=6.7500e+01, K_norm=4.0750e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=6.7500e+01, K_norm=4.0750e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.7500e+01, K_norm=2.1440e+03, logits_norm=1.1600e+03. Max val=8.5625e+00, Min val=-1.0625e+01
-[DBG L0 step=5 PRE-ROPE] Q_norm=8.1500e+01, K_norm=4.4000e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=8.1500e+01, K_norm=4.4000e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.1500e+01, K_norm=2.1440e+03, logits_norm=1.4160e+03. Max val=1.4625e+01, Min val=-1.2625e+01
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[3789] global_tc=3789 phys_before=821 concat_len=822 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7000e+01, K_norm=1.1040e+03, logits_norm=5.4000e+02. Max val=1.2438e+01, Min val=-2.0500e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=5.7750e+01, K_norm=3.5000e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=5.7750e+01, K_norm=3.5000e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.7750e+01, K_norm=1.1040e+03, logits_norm=4.5400e+02. Max val=7.0938e+00, Min val=-2.0750e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=6.0500e+01, K_norm=3.6000e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=6.0500e+01, K_norm=3.6000e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.0500e+01, K_norm=1.1040e+03, logits_norm=4.8800e+02. Max val=8.1875e+00, Min val=-1.7750e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=5.0750e+01, K_norm=3.2500e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=5.0750e+01, K_norm=3.2500e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.0750e+01, K_norm=1.1040e+03, logits_norm=4.2400e+02. Max val=6.6875e+00, Min val=-1.2375e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=8.2000e+01, K_norm=4.3750e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=8.2000e+01, K_norm=4.3750e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.2000e+01, K_norm=1.1040e+03, logits_norm=6.4800e+02. Max val=1.0875e+01, Min val=-1.8000e+01
 [DBG L0 step=0 PRE-ROPE] Q_norm=4.0640e+03, K_norm=2.1120e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=4.0640e+03, K_norm=2.1120e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=4.0640e+03, K_norm=2.1120e+03, logits_norm=5.2480e+04. Max val=1.9000e+01, Min val=-3.4750e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=7.4000e+01, K_norm=4.1750e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=7.4000e+01, K_norm=4.1750e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.4000e+01, K_norm=1.7600e+03, logits_norm=7.3200e+02. Max val=1.1938e+01, Min val=-8.1250e+00
-[DBG L0 step=2 PRE-ROPE] Q_norm=5.0000e+01, K_norm=2.9250e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=5.0000e+01, K_norm=2.9250e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.0000e+01, K_norm=1.7600e+03, logits_norm=5.7200e+02. Max val=6.8125e+00, Min val=-6.2500e+00
-[DBG L0 step=3 PRE-ROPE] Q_norm=5.0000e+01, K_norm=2.9250e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=5.0000e+01, K_norm=2.9250e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.0000e+01, K_norm=1.7600e+03, logits_norm=6.6000e+02. Max val=6.9062e+00, Min val=-7.3125e+00
-[DBG L0 step=4 PRE-ROPE] Q_norm=5.0000e+01, K_norm=2.9250e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=5.0000e+01, K_norm=2.9250e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.0000e+01, K_norm=1.7600e+03, logits_norm=6.9600e+02. Max val=6.9688e+00, Min val=-8.0000e+00
-[DBG L0 step=5 PRE-ROPE] Q_norm=5.0000e+01, K_norm=2.9250e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=5.0000e+01, K_norm=2.9250e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.0000e+01, K_norm=1.7600e+03, logits_norm=6.3600e+02. Max val=7.1250e+00, Min val=-6.5625e+00
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[2546] global_tc=2546 phys_before=586 concat_len=587 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.4000e+01, K_norm=9.3200e+02, logits_norm=4.2200e+02. Max val=1.1938e+01, Min val=-2.2625e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=6.2750e+01, K_norm=3.7750e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=6.2750e+01, K_norm=3.7750e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.2750e+01, K_norm=9.3600e+02, logits_norm=3.9600e+02. Max val=7.3438e+00, Min val=-1.5250e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=4.3750e+01, K_norm=2.8875e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=4.3750e+01, K_norm=2.8875e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=4.3750e+01, K_norm=9.3600e+02, logits_norm=3.2600e+02. Max val=5.3438e+00, Min val=-1.5438e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=1.0250e+02, K_norm=4.4250e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=1.0250e+02, K_norm=4.4250e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=1.0250e+02, K_norm=9.3600e+02, logits_norm=5.5600e+02. Max val=1.5062e+01, Min val=-2.1125e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=1.0250e+02, K_norm=4.4250e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=1.0250e+02, K_norm=4.4250e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=1.0250e+02, K_norm=9.3600e+02, logits_norm=5.3600e+02. Max val=1.5438e+01, Min val=-1.8500e+01
 [DBG L0 step=0 PRE-ROPE] Q_norm=4.5440e+03, K_norm=2.4480e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=4.5440e+03, K_norm=2.4480e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=4.5440e+03, K_norm=2.4480e+03, logits_norm=7.1680e+04. Max val=2.0875e+01, Min val=-3.4750e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=8.4500e+01, K_norm=3.8500e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=8.4500e+01, K_norm=3.8500e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.4500e+01, K_norm=2.0640e+03, logits_norm=1.0720e+03. Max val=1.1438e+01, Min val=-9.6875e+00
-[DBG L0 step=2 PRE-ROPE] Q_norm=7.4500e+01, K_norm=4.2250e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=7.4500e+01, K_norm=4.2250e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.4500e+01, K_norm=2.0640e+03, logits_norm=1.0720e+03. Max val=1.0125e+01, Min val=-1.0125e+01
-[DBG L0 step=3 PRE-ROPE] Q_norm=7.4500e+01, K_norm=4.2250e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=7.4500e+01, K_norm=4.2250e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.4500e+01, K_norm=2.0640e+03, logits_norm=8.6400e+02. Max val=1.0125e+01, Min val=-8.0000e+00
-[DBG L0 step=4 PRE-ROPE] Q_norm=7.4500e+01, K_norm=4.2250e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=7.4500e+01, K_norm=4.2250e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.4500e+01, K_norm=2.0640e+03, logits_norm=6.7600e+02. Max val=1.0125e+01, Min val=-8.3125e+00
-[DBG L0 step=5 PRE-ROPE] Q_norm=7.4500e+01, K_norm=4.2250e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=7.4500e+01, K_norm=4.2250e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.4500e+01, K_norm=2.0640e+03, logits_norm=6.6000e+02. Max val=1.0125e+01, Min val=-8.6875e+00
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[3503] global_tc=3503 phys_before=767 concat_len=768 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.4500e+01, K_norm=1.0560e+03, logits_norm=5.6800e+02. Max val=1.1438e+01, Min val=-2.0750e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=8.9500e+01, K_norm=4.1500e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=8.9500e+01, K_norm=4.1500e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.9500e+01, K_norm=1.0560e+03, logits_norm=5.8800e+02. Max val=1.1500e+01, Min val=-2.5375e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=8.2500e+01, K_norm=3.9500e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=8.2500e+01, K_norm=3.9500e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.2500e+01, K_norm=1.0560e+03, logits_norm=5.0200e+02. Max val=1.0625e+01, Min val=-2.7750e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=6.0750e+01, K_norm=3.7750e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=6.0750e+01, K_norm=3.7750e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.0750e+01, K_norm=1.0560e+03, logits_norm=3.9200e+02. Max val=9.0625e+00, Min val=-1.6875e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=8.6000e+01, K_norm=4.6000e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=8.6000e+01, K_norm=4.6000e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.6000e+01, K_norm=1.0560e+03, logits_norm=5.2800e+02. Max val=1.3125e+01, Min val=-1.8625e+01
 [DBG L0 step=0 PRE-ROPE] Q_norm=3.6160e+03, K_norm=1.9680e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=3.6160e+03, K_norm=1.9680e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=3.6160e+03, K_norm=1.9680e+03, logits_norm=4.4032e+04. Max val=1.9250e+01, Min val=-3.3500e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=6.7500e+01, K_norm=4.4000e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=6.7500e+01, K_norm=4.4000e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.7500e+01, K_norm=1.6560e+03, logits_norm=7.0800e+02. Max val=1.1562e+01, Min val=-7.1562e+00
-[DBG L0 step=2 PRE-ROPE] Q_norm=8.6500e+01, K_norm=4.6250e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=8.6500e+01, K_norm=4.6250e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.6500e+01, K_norm=1.6560e+03, logits_norm=9.9600e+02. Max val=1.5625e+01, Min val=-8.5625e+00
-[DBG L0 step=3 PRE-ROPE] Q_norm=5.5500e+01, K_norm=3.4750e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=5.5500e+01, K_norm=3.4750e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.5500e+01, K_norm=1.6560e+03, logits_norm=9.1600e+02. Max val=7.3750e+00, Min val=-1.2062e+01
-[DBG L0 step=4 PRE-ROPE] Q_norm=5.7500e+01, K_norm=3.6750e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=5.7500e+01, K_norm=3.6750e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.7500e+01, K_norm=1.6560e+03, logits_norm=9.7200e+02. Max val=7.0312e+00, Min val=-1.1000e+01
-[DBG L0 step=5 PRE-ROPE] Q_norm=8.2000e+01, K_norm=4.3750e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=8.2000e+01, K_norm=4.3750e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.2000e+01, K_norm=1.6560e+03, logits_norm=9.9200e+02. Max val=1.0562e+01, Min val=-1.1312e+01
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[2257] global_tc=2257 phys_before=529 concat_len=530 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.7500e+01, K_norm=8.7600e+02, logits_norm=3.7400e+02. Max val=1.1562e+01, Min val=-1.4250e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=5.7500e+01, K_norm=3.5250e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=5.7750e+01, K_norm=3.5250e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.7750e+01, K_norm=8.7600e+02, logits_norm=4.0000e+02. Max val=7.2812e+00, Min val=-1.7125e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=4.6250e+01, K_norm=2.8875e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=4.6250e+01, K_norm=2.8875e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=4.6250e+01, K_norm=8.7600e+02, logits_norm=3.3000e+02. Max val=6.1875e+00, Min val=-1.1375e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=5.7750e+01, K_norm=3.5000e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=5.7750e+01, K_norm=3.5000e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.7750e+01, K_norm=8.8000e+02, logits_norm=4.5800e+02. Max val=7.0938e+00, Min val=-1.7000e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=5.7750e+01, K_norm=3.4000e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=5.7750e+01, K_norm=3.4000e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.7750e+01, K_norm=8.8000e+02, logits_norm=3.8400e+02. Max val=8.0000e+00, Min val=-1.6125e+01
 [DBG L0 step=0 PRE-ROPE] Q_norm=2.9600e+03, K_norm=1.6320e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=2.9600e+03, K_norm=1.6320e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=2.9600e+03, K_norm=1.6320e+03, logits_norm=3.1872e+04. Max val=2.0625e+01, Min val=-3.3250e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=8.1500e+01, K_norm=4.4000e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=8.2000e+01, K_norm=4.4000e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.2000e+01, K_norm=1.4240e+03, logits_norm=8.3200e+02. Max val=1.3250e+01, Min val=-1.3062e+01
-[DBG L0 step=2 PRE-ROPE] Q_norm=6.5000e+01, K_norm=3.8250e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=6.5000e+01, K_norm=3.8250e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.5000e+01, K_norm=1.4240e+03, logits_norm=5.2800e+02. Max val=9.3750e+00, Min val=-6.6250e+00
-[DBG L0 step=3 PRE-ROPE] Q_norm=6.3250e+01, K_norm=3.7500e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=6.3250e+01, K_norm=3.7500e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.3250e+01, K_norm=1.4240e+03, logits_norm=4.5600e+02. Max val=9.9375e+00, Min val=-6.7188e+00
-[DBG L0 step=4 PRE-ROPE] Q_norm=6.3250e+01, K_norm=3.7500e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=6.3250e+01, K_norm=3.7500e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.3250e+01, K_norm=1.4240e+03, logits_norm=5.0400e+02. Max val=7.9375e+00, Min val=-7.7188e+00
-[DBG L0 step=5 PRE-ROPE] Q_norm=8.7000e+01, K_norm=4.4250e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=8.7000e+01, K_norm=4.4250e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.7000e+01, K_norm=1.4240e+03, logits_norm=7.5600e+02. Max val=1.0875e+01, Min val=-9.5625e+00
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[1664] global_tc=1664 phys_before=416 concat_len=417 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.2000e+01, K_norm=7.6800e+02, logits_norm=4.2200e+02. Max val=1.3250e+01, Min val=-2.1250e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=5.5750e+01, K_norm=3.2000e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=5.5750e+01, K_norm=3.2000e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.5750e+01, K_norm=7.6800e+02, logits_norm=2.9600e+02. Max val=6.6250e+00, Min val=-1.9375e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=5.5750e+01, K_norm=3.2000e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=5.5750e+01, K_norm=3.2000e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.5750e+01, K_norm=7.6800e+02, logits_norm=2.7400e+02. Max val=6.8438e+00, Min val=-1.8125e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=7.1000e+01, K_norm=4.1250e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=7.1000e+01, K_norm=4.1250e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.1000e+01, K_norm=7.7200e+02, logits_norm=3.3800e+02. Max val=9.7500e+00, Min val=-2.4250e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=7.6500e+01, K_norm=4.0250e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=7.6500e+01, K_norm=4.0250e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.6500e+01, K_norm=7.7200e+02, logits_norm=3.7600e+02. Max val=1.0812e+01, Min val=-1.5500e+01
 [DBG L0 step=0 PRE-ROPE] Q_norm=4.9920e+03, K_norm=2.7200e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=4.9920e+03, K_norm=2.7200e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=4.9920e+03, K_norm=2.7200e+03, logits_norm=8.9088e+04. Max val=2.0250e+01, Min val=-3.8250e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=7.7000e+01, K_norm=4.9500e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=7.7000e+01, K_norm=4.9500e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7000e+01, K_norm=2.3040e+03, logits_norm=1.5440e+03. Max val=1.2438e+01, Min val=-1.1438e+01
-[DBG L0 step=2 PRE-ROPE] Q_norm=6.3750e+01, K_norm=4.0250e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=6.3750e+01, K_norm=4.0250e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.3750e+01, K_norm=2.3040e+03, logits_norm=1.4880e+03. Max val=8.3125e+00, Min val=-8.1250e+00
-[DBG L0 step=3 PRE-ROPE] Q_norm=6.0250e+01, K_norm=3.6750e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=6.0250e+01, K_norm=3.6750e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.0250e+01, K_norm=2.3040e+03, logits_norm=1.5920e+03. Max val=8.2500e+00, Min val=-1.0312e+01
-[DBG L0 step=4 PRE-ROPE] Q_norm=5.4750e+01, K_norm=3.8750e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=5.4750e+01, K_norm=3.8750e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.4750e+01, K_norm=2.3040e+03, logits_norm=1.4080e+03. Max val=7.5938e+00, Min val=-1.0438e+01
-[DBG L0 step=5 PRE-ROPE] Q_norm=5.4750e+01, K_norm=3.8750e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=5.4750e+01, K_norm=3.8750e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.4750e+01, K_norm=2.3040e+03, logits_norm=1.3280e+03. Max val=7.7500e+00, Min val=-9.5000e+00
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[4361] global_tc=4361 phys_before=937 concat_len=938 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7000e+01, K_norm=1.1760e+03, logits_norm=6.7200e+02. Max val=1.2438e+01, Min val=-1.8750e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=6.1250e+01, K_norm=3.7750e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=6.1250e+01, K_norm=3.7750e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.1250e+01, K_norm=1.1760e+03, logits_norm=6.0400e+02. Max val=9.1875e+00, Min val=-1.7625e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=7.2500e+01, K_norm=4.1750e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=7.2500e+01, K_norm=4.1750e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.2500e+01, K_norm=1.1760e+03, logits_norm=6.5200e+02. Max val=9.9375e+00, Min val=-1.6875e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=7.2500e+01, K_norm=4.1750e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=7.2500e+01, K_norm=4.1750e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.2500e+01, K_norm=1.1760e+03, logits_norm=6.7200e+02. Max val=9.9375e+00, Min val=-1.6875e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=7.5500e+01, K_norm=3.5000e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=7.5500e+01, K_norm=3.5000e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.5500e+01, K_norm=1.1760e+03, logits_norm=6.6000e+02. Max val=1.4375e+01, Min val=-2.2125e+01
 [DBG L0 step=0 PRE-ROPE] Q_norm=3.5200e+03, K_norm=1.9440e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=3.5200e+03, K_norm=1.9440e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=3.5200e+03, K_norm=1.9440e+03, logits_norm=4.4288e+04. Max val=1.9000e+01, Min val=-3.2750e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=8.1500e+01, K_norm=4.4000e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=8.1500e+01, K_norm=4.4000e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.1500e+01, K_norm=1.6560e+03, logits_norm=9.1600e+02. Max val=1.3438e+01, Min val=-1.0812e+01
-[DBG L0 step=2 PRE-ROPE] Q_norm=4.7750e+01, K_norm=2.9500e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=4.7750e+01, K_norm=2.9500e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=4.7750e+01, K_norm=1.6560e+03, logits_norm=5.2800e+02. Max val=6.2188e+00, Min val=-5.0625e+00
-[DBG L0 step=3 PRE-ROPE] Q_norm=7.3500e+01, K_norm=3.8000e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=7.3500e+01, K_norm=3.8000e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.3500e+01, K_norm=1.6560e+03, logits_norm=6.7600e+02. Max val=8.1250e+00, Min val=-9.1875e+00
-[DBG L0 step=4 PRE-ROPE] Q_norm=7.3500e+01, K_norm=3.8000e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=7.3500e+01, K_norm=3.8000e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.3500e+01, K_norm=1.6560e+03, logits_norm=7.7600e+02. Max val=8.6250e+00, Min val=-9.3125e+00
-[DBG L0 step=5 PRE-ROPE] Q_norm=5.3000e+01, K_norm=3.3000e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=5.3000e+01, K_norm=3.3000e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.3000e+01, K_norm=1.6560e+03, logits_norm=7.1200e+02. Max val=7.1250e+00, Min val=-7.7188e+00
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[2261] global_tc=2261 phys_before=533 concat_len=534 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.1500e+01, K_norm=8.8000e+02, logits_norm=4.7000e+02. Max val=1.3438e+01, Min val=-1.9625e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=5.5750e+01, K_norm=3.3000e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=5.5750e+01, K_norm=3.3000e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.5750e+01, K_norm=8.8000e+02, logits_norm=3.5200e+02. Max val=6.1875e+00, Min val=-1.4938e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=7.3500e+01, K_norm=3.7500e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=7.3500e+01, K_norm=3.7500e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.3500e+01, K_norm=8.8000e+02, logits_norm=4.0600e+02. Max val=9.9375e+00, Min val=-2.1500e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=7.1000e+01, K_norm=3.7500e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=7.1000e+01, K_norm=3.7500e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.1000e+01, K_norm=8.8000e+02, logits_norm=4.0800e+02. Max val=8.7500e+00, Min val=-1.5688e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=5.6500e+01, K_norm=3.4750e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=5.6500e+01, K_norm=3.4750e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.6500e+01, K_norm=8.8400e+02, logits_norm=3.8600e+02. Max val=8.8125e+00, Min val=-1.5562e+01
 [DBG L0 step=0 PRE-ROPE] Q_norm=4.3200e+03, K_norm=2.3840e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=4.3200e+03, K_norm=2.3840e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=4.3200e+03, K_norm=2.3840e+03, logits_norm=6.9120e+04. Max val=1.9000e+01, Min val=-3.4000e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=8.1500e+01, K_norm=4.4000e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=8.1500e+01, K_norm=4.4000e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.1500e+01, K_norm=2.0240e+03, logits_norm=9.0400e+02. Max val=1.3438e+01, Min val=-8.6250e+00
-[DBG L0 step=2 PRE-ROPE] Q_norm=7.7500e+01, K_norm=4.3500e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=7.7500e+01, K_norm=4.3500e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7500e+01, K_norm=2.0240e+03, logits_norm=7.2400e+02. Max val=9.7500e+00, Min val=-7.1875e+00
-[DBG L0 step=3 PRE-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.9500e+01, K_norm=2.0240e+03, logits_norm=5.8000e+02. Max val=9.0000e+00, Min val=-6.2812e+00
-[DBG L0 step=4 PRE-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.9500e+01, K_norm=2.0240e+03, logits_norm=6.3600e+02. Max val=9.7500e+00, Min val=-6.4375e+00
-[DBG L0 step=5 PRE-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.9500e+01, K_norm=2.0240e+03, logits_norm=7.6400e+02. Max val=9.6875e+00, Min val=-8.3125e+00
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[3367] global_tc=3367 phys_before=743 concat_len=744 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.1500e+01, K_norm=1.0400e+03, logits_norm=5.1000e+02. Max val=1.3438e+01, Min val=-1.8125e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=7.3500e+01, K_norm=4.2750e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=7.3500e+01, K_norm=4.2750e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.3500e+01, K_norm=1.0400e+03, logits_norm=4.3600e+02. Max val=7.8750e+00, Min val=-1.7250e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=3.8250e+01, K_norm=2.7250e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=3.8250e+01, K_norm=2.7250e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=3.8250e+01, K_norm=1.0400e+03, logits_norm=2.5500e+02. Max val=5.2812e+00, Min val=-7.8125e+00
+[DBG L0 step=4 PRE-ROPE] Q_norm=3.8250e+01, K_norm=2.7250e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=3.8250e+01, K_norm=2.7250e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=3.8250e+01, K_norm=1.0400e+03, logits_norm=2.5600e+02. Max val=5.2812e+00, Min val=-7.5000e+00
+[DBG L0 step=5 PRE-ROPE] Q_norm=5.7750e+01, K_norm=3.4250e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=5.7750e+01, K_norm=3.4250e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.7750e+01, K_norm=1.0400e+03, logits_norm=4.0400e+02. Max val=6.5938e+00, Min val=-1.3062e+01
 [DBG L0 step=0 PRE-ROPE] Q_norm=3.2640e+03, K_norm=1.7840e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=3.2640e+03, K_norm=1.7840e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=3.2640e+03, K_norm=1.7840e+03, logits_norm=3.6864e+04. Max val=2.0500e+01, Min val=-3.3000e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=6.7500e+01, K_norm=4.4000e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=6.7500e+01, K_norm=4.4000e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.7500e+01, K_norm=1.5360e+03, logits_norm=1.0640e+03. Max val=1.1500e+01, Min val=-1.2312e+01
-[DBG L0 step=2 PRE-ROPE] Q_norm=6.0000e+01, K_norm=3.7500e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=6.0000e+01, K_norm=3.7500e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.0000e+01, K_norm=1.5360e+03, logits_norm=8.6400e+02. Max val=7.1875e+00, Min val=-9.5625e+00
-[DBG L0 step=3 PRE-ROPE] Q_norm=5.9500e+01, K_norm=3.4750e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=5.9500e+01, K_norm=3.4750e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.9500e+01, K_norm=1.5440e+03, logits_norm=7.9600e+02. Max val=8.0000e+00, Min val=-6.8438e+00
-[DBG L0 step=4 PRE-ROPE] Q_norm=5.9500e+01, K_norm=3.4750e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=5.9500e+01, K_norm=3.4750e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.9500e+01, K_norm=1.5440e+03, logits_norm=7.7600e+02. Max val=8.1875e+00, Min val=-6.8125e+00
-[DBG L0 step=5 PRE-ROPE] Q_norm=7.9000e+01, K_norm=4.4750e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=7.9000e+01, K_norm=4.4750e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.9000e+01, K_norm=1.5440e+03, logits_norm=1.0160e+03. Max val=1.0312e+01, Min val=-9.3750e+00
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[1952] global_tc=1952 phys_before=480 concat_len=481 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.7500e+01, K_norm=8.2800e+02, logits_norm=4.5600e+02. Max val=1.1500e+01, Min val=-1.4938e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=6.7500e+01, K_norm=3.9000e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=6.7500e+01, K_norm=3.9000e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.7500e+01, K_norm=8.2800e+02, logits_norm=4.5000e+02. Max val=8.8750e+00, Min val=-1.9750e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=8.0500e+01, K_norm=4.5250e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=8.0500e+01, K_norm=4.5250e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.0500e+01, K_norm=8.3200e+02, logits_norm=4.3600e+02. Max val=1.0875e+01, Min val=-1.5625e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=4.6500e+01, K_norm=2.9875e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=4.6500e+01, K_norm=2.9875e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=4.6500e+01, K_norm=8.3200e+02, logits_norm=3.1000e+02. Max val=6.5938e+00, Min val=-1.1250e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=4.6250e+01, K_norm=3.0750e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=4.6250e+01, K_norm=3.0750e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=4.6250e+01, K_norm=8.3200e+02, logits_norm=3.0600e+02. Max val=6.1875e+00, Min val=-1.3062e+01
 [DBG L0 step=0 PRE-ROPE] Q_norm=3.3760e+03, K_norm=1.8480e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=3.3760e+03, K_norm=1.8480e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=3.3760e+03, K_norm=1.8480e+03, logits_norm=4.0192e+04. Max val=2.1625e+01, Min val=-3.6500e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=7.7500e+01, K_norm=4.3500e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=7.7500e+01, K_norm=4.3500e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7500e+01, K_norm=1.5680e+03, logits_norm=1.0480e+03. Max val=1.2625e+01, Min val=-1.0438e+01
-[DBG L0 step=2 PRE-ROPE] Q_norm=7.1000e+01, K_norm=3.8500e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=7.1000e+01, K_norm=3.8500e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.1000e+01, K_norm=1.5760e+03, logits_norm=1.0000e+03. Max val=1.0688e+01, Min val=-9.2500e+00
-[DBG L0 step=3 PRE-ROPE] Q_norm=5.7750e+01, K_norm=3.4750e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=5.7750e+01, K_norm=3.4750e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.7750e+01, K_norm=1.5760e+03, logits_norm=9.8400e+02. Max val=6.4062e+00, Min val=-1.0062e+01
-[DBG L0 step=4 PRE-ROPE] Q_norm=5.5000e+01, K_norm=3.5000e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=5.5250e+01, K_norm=3.5000e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.5250e+01, K_norm=1.5760e+03, logits_norm=1.0560e+03. Max val=6.7188e+00, Min val=-1.0688e+01
-[DBG L0 step=5 PRE-ROPE] Q_norm=7.0500e+01, K_norm=3.5000e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=7.0500e+01, K_norm=3.5000e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.0500e+01, K_norm=1.5760e+03, logits_norm=1.0640e+03. Max val=9.1250e+00, Min val=-8.6875e+00
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[2037] global_tc=2037 phys_before=493 concat_len=494 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7500e+01, K_norm=8.4800e+02, logits_norm=4.8200e+02. Max val=1.2625e+01, Min val=-1.5750e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=8.8500e+01, K_norm=4.7000e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=8.8500e+01, K_norm=4.7000e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.8500e+01, K_norm=8.4800e+02, logits_norm=5.1600e+02. Max val=1.1125e+01, Min val=-1.7000e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=7.9000e+01, K_norm=4.4750e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=7.9000e+01, K_norm=4.4750e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.9000e+01, K_norm=8.5200e+02, logits_norm=5.2000e+02. Max val=1.1062e+01, Min val=-1.7625e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=7.8500e+01, K_norm=4.5500e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=7.8500e+01, K_norm=4.5500e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.8500e+01, K_norm=8.5200e+02, logits_norm=5.3200e+02. Max val=1.2562e+01, Min val=-1.6375e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=5.8750e+01, K_norm=3.5750e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=5.8750e+01, K_norm=3.5750e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.8750e+01, K_norm=8.5200e+02, logits_norm=3.9200e+02. Max val=8.8125e+00, Min val=-1.3750e+01
 [DBG L0 step=0 PRE-ROPE] Q_norm=3.2960e+03, K_norm=1.8160e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=3.2960e+03, K_norm=1.8160e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=3.2960e+03, K_norm=1.8160e+03, logits_norm=3.8144e+04. Max val=1.9375e+01, Min val=-3.2000e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=7.7000e+01, K_norm=4.9500e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=7.7000e+01, K_norm=4.9500e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7000e+01, K_norm=1.5440e+03, logits_norm=9.7600e+02. Max val=1.2375e+01, Min val=-1.0062e+01
-[DBG L0 step=2 PRE-ROPE] Q_norm=8.1500e+01, K_norm=4.4000e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=8.1500e+01, K_norm=4.4000e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.1500e+01, K_norm=1.5440e+03, logits_norm=1.2240e+03. Max val=1.3688e+01, Min val=-1.3938e+01
-[DBG L0 step=3 PRE-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.9500e+01, K_norm=1.5440e+03, logits_norm=1.2400e+03. Max val=1.0312e+01, Min val=-1.5688e+01
-[DBG L0 step=4 PRE-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.9500e+01, K_norm=1.5440e+03, logits_norm=1.2320e+03. Max val=9.6875e+00, Min val=-1.5688e+01
-[DBG L0 step=5 PRE-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.9500e+01, K_norm=1.5440e+03, logits_norm=1.0800e+03. Max val=9.6875e+00, Min val=-1.2562e+01
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[1962] global_tc=1962 phys_before=482 concat_len=483 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7000e+01, K_norm=8.5200e+02, logits_norm=4.5400e+02. Max val=1.2375e+01, Min val=-1.6625e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=8.1500e+01, K_norm=4.4250e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=8.1500e+01, K_norm=4.4250e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.1500e+01, K_norm=8.5200e+02, logits_norm=5.5200e+02. Max val=1.3000e+01, Min val=-1.7750e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=7.8000e+01, K_norm=4.3000e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=7.8000e+01, K_norm=4.3000e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.8000e+01, K_norm=8.5200e+02, logits_norm=5.1200e+02. Max val=8.6250e+00, Min val=-1.5750e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=5.4250e+01, K_norm=3.5750e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=5.4250e+01, K_norm=3.5750e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.4250e+01, K_norm=8.5200e+02, logits_norm=4.5800e+02. Max val=6.8125e+00, Min val=-1.4250e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=5.1750e+01, K_norm=3.2500e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=5.1750e+01, K_norm=3.2500e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.1750e+01, K_norm=8.5600e+02, logits_norm=4.1000e+02. Max val=6.3750e+00, Min val=-1.3688e+01
 [DBG L0 step=0 PRE-ROPE] Q_norm=4.4480e+03, K_norm=2.4480e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=4.4480e+03, K_norm=2.4480e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=4.4480e+03, K_norm=2.4480e+03, logits_norm=7.1168e+04. Max val=2.1750e+01, Min val=-3.8500e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=7.7000e+01, K_norm=4.9500e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=7.7000e+01, K_norm=4.9500e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7000e+01, K_norm=2.0480e+03, logits_norm=1.1680e+03. Max val=1.2438e+01, Min val=-1.1688e+01
-[DBG L0 step=2 PRE-ROPE] Q_norm=7.4500e+01, K_norm=4.1250e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=7.4500e+01, K_norm=4.1250e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.4500e+01, K_norm=2.0480e+03, logits_norm=9.0800e+02. Max val=1.2438e+01, Min val=-8.3750e+00
-[DBG L0 step=3 PRE-ROPE] Q_norm=8.1500e+01, K_norm=4.7250e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=8.1500e+01, K_norm=4.7250e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.1500e+01, K_norm=2.0480e+03, logits_norm=8.4800e+02. Max val=1.1938e+01, Min val=-9.1875e+00
-[DBG L0 step=4 PRE-ROPE] Q_norm=9.7500e+01, K_norm=4.6500e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=9.7500e+01, K_norm=4.6500e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=9.7500e+01, K_norm=2.0480e+03, logits_norm=9.6000e+02. Max val=1.5188e+01, Min val=-1.0500e+01
-[DBG L0 step=5 PRE-ROPE] Q_norm=9.6500e+01, K_norm=4.8750e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=9.6500e+01, K_norm=4.8750e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=9.6500e+01, K_norm=2.0480e+03, logits_norm=1.0640e+03. Max val=1.2062e+01, Min val=-9.5000e+00
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[3473] global_tc=3473 phys_before=769 concat_len=770 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7000e+01, K_norm=1.0640e+03, logits_norm=5.6000e+02. Max val=1.2438e+01, Min val=-1.8000e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=6.8500e+01, K_norm=4.0000e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=6.8500e+01, K_norm=4.0000e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.8500e+01, K_norm=1.0640e+03, logits_norm=5.2400e+02. Max val=8.0625e+00, Min val=-2.0500e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=6.8000e+01, K_norm=4.0250e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=6.8000e+01, K_norm=4.0250e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.8000e+01, K_norm=1.0640e+03, logits_norm=4.6200e+02. Max val=8.1875e+00, Min val=-2.0250e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=7.1000e+01, K_norm=3.6250e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=7.1000e+01, K_norm=3.6250e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.1000e+01, K_norm=1.0640e+03, logits_norm=4.6200e+02. Max val=9.8125e+00, Min val=-1.6250e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=7.7500e+01, K_norm=4.3500e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=7.7500e+01, K_norm=4.3500e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7500e+01, K_norm=1.0640e+03, logits_norm=5.4800e+02. Max val=1.2625e+01, Min val=-1.8375e+01
 [DBG L0 step=0 PRE-ROPE] Q_norm=3.7600e+03, K_norm=2.0480e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=3.7600e+03, K_norm=2.0480e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=3.7600e+03, K_norm=2.0480e+03, logits_norm=4.9920e+04. Max val=2.0500e+01, Min val=-3.5250e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=7.7000e+01, K_norm=4.9500e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=7.7000e+01, K_norm=4.9500e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7000e+01, K_norm=1.7440e+03, logits_norm=8.6400e+02. Max val=1.2375e+01, Min val=-9.3125e+00
-[DBG L0 step=2 PRE-ROPE] Q_norm=5.5750e+01, K_norm=3.3500e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=5.5500e+01, K_norm=3.3500e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.5500e+01, K_norm=1.7440e+03, logits_norm=6.0000e+02. Max val=7.4062e+00, Min val=-6.0000e+00
-[DBG L0 step=3 PRE-ROPE] Q_norm=7.4500e+01, K_norm=4.2250e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=7.4500e+01, K_norm=4.2250e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.4500e+01, K_norm=1.7440e+03, logits_norm=8.0400e+02. Max val=1.0125e+01, Min val=-7.7812e+00
-[DBG L0 step=4 PRE-ROPE] Q_norm=5.2000e+01, K_norm=3.1750e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=5.2000e+01, K_norm=3.1750e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.2000e+01, K_norm=1.7440e+03, logits_norm=6.8800e+02. Max val=6.5938e+00, Min val=-7.3438e+00
-[DBG L0 step=5 PRE-ROPE] Q_norm=8.8500e+01, K_norm=4.6500e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=8.8500e+01, K_norm=4.6500e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.8500e+01, K_norm=1.7440e+03, logits_norm=1.0200e+03. Max val=1.0875e+01, Min val=-1.0375e+01
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[2507] global_tc=2507 phys_before=579 concat_len=580 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7000e+01, K_norm=9.1200e+02, logits_norm=4.4600e+02. Max val=1.2375e+01, Min val=-1.7500e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=5.1000e+01, K_norm=2.9500e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=5.0750e+01, K_norm=2.9500e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.0750e+01, K_norm=9.1200e+02, logits_norm=3.2600e+02. Max val=8.0625e+00, Min val=-1.3000e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=1.0350e+02, K_norm=4.9250e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=1.0350e+02, K_norm=4.9250e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=1.0350e+02, K_norm=9.1600e+02, logits_norm=5.1600e+02. Max val=1.4562e+01, Min val=-1.8125e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=5.1500e+01, K_norm=3.0500e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=5.1500e+01, K_norm=3.0500e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.1500e+01, K_norm=9.1600e+02, logits_norm=3.2800e+02. Max val=1.0500e+01, Min val=-1.0688e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=6.1250e+01, K_norm=3.6250e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=6.1250e+01, K_norm=3.6250e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.1250e+01, K_norm=9.1600e+02, logits_norm=4.3200e+02. Max val=6.2188e+00, Min val=-1.4750e+01
 [DBG L0 step=0 PRE-ROPE] Q_norm=4.3200e+03, K_norm=2.3680e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=4.3200e+03, K_norm=2.3680e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=4.3200e+03, K_norm=2.3680e+03, logits_norm=6.5536e+04. Max val=1.9625e+01, Min val=-3.4000e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=6.7500e+01, K_norm=4.4000e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=6.7500e+01, K_norm=4.4000e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.7500e+01, K_norm=1.9680e+03, logits_norm=1.4480e+03. Max val=1.1500e+01, Min val=-1.2188e+01
-[DBG L0 step=2 PRE-ROPE] Q_norm=7.9000e+01, K_norm=3.9500e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=7.9000e+01, K_norm=3.9500e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.9000e+01, K_norm=1.9680e+03, logits_norm=2.2080e+03. Max val=1.2375e+01, Min val=-2.2375e+01
-[DBG L0 step=3 PRE-ROPE] Q_norm=5.0000e+01, K_norm=2.9250e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=5.0000e+01, K_norm=2.9250e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.0000e+01, K_norm=1.9680e+03, logits_norm=1.3680e+03. Max val=6.9062e+00, Min val=-1.1062e+01
-[DBG L0 step=4 PRE-ROPE] Q_norm=5.0000e+01, K_norm=2.9250e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=5.0000e+01, K_norm=2.9250e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.0000e+01, K_norm=1.9680e+03, logits_norm=1.2720e+03. Max val=6.8750e+00, Min val=-9.3125e+00
-[DBG L0 step=5 PRE-ROPE] Q_norm=5.0000e+01, K_norm=2.9250e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=5.0000e+01, K_norm=2.9250e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.0000e+01, K_norm=1.9680e+03, logits_norm=1.1280e+03. Max val=6.9688e+00, Min val=-7.3438e+00
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[3194] global_tc=3194 phys_before=714 concat_len=715 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.7500e+01, K_norm=1.0400e+03, logits_norm=5.9200e+02. Max val=1.1500e+01, Min val=-1.7000e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=4.7750e+01, K_norm=3.0375e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=4.7750e+01, K_norm=3.0375e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=4.7750e+01, K_norm=1.0400e+03, logits_norm=5.3600e+02. Max val=6.1250e+00, Min val=-1.4812e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=8.1500e+01, K_norm=4.0750e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=8.1500e+01, K_norm=4.0750e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.1500e+01, K_norm=1.0400e+03, logits_norm=8.4000e+02. Max val=1.1312e+01, Min val=-2.4625e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=6.9500e+01, K_norm=3.9000e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=6.9500e+01, K_norm=3.9000e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.9500e+01, K_norm=1.0400e+03, logits_norm=7.2800e+02. Max val=9.0625e+00, Min val=-2.4875e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=8.8500e+01, K_norm=4.6500e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=8.8500e+01, K_norm=4.6500e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.8500e+01, K_norm=1.0400e+03, logits_norm=6.6000e+02. Max val=1.1875e+01, Min val=-1.8500e+01
 [DBG L0 step=0 PRE-ROPE] Q_norm=2.7840e+03, K_norm=1.5520e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=2.7840e+03, K_norm=1.5520e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=2.7840e+03, K_norm=1.5520e+03, logits_norm=2.7776e+04. Max val=1.9125e+01, Min val=-2.9500e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=6.7500e+01, K_norm=4.4000e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=6.7500e+01, K_norm=4.4000e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.7500e+01, K_norm=1.3280e+03, logits_norm=6.5600e+02. Max val=1.1562e+01, Min val=-8.8750e+00
-[DBG L0 step=2 PRE-ROPE] Q_norm=6.3000e+01, K_norm=3.9000e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=6.3000e+01, K_norm=3.9000e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.3000e+01, K_norm=1.3280e+03, logits_norm=4.7800e+02. Max val=1.0062e+01, Min val=-7.4375e+00
-[DBG L0 step=3 PRE-ROPE] Q_norm=1.0150e+02, K_norm=4.7750e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=1.0150e+02, K_norm=4.7750e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=1.0150e+02, K_norm=1.3280e+03, logits_norm=5.3200e+02. Max val=1.1562e+01, Min val=-8.5000e+00
-[DBG L0 step=4 PRE-ROPE] Q_norm=7.4500e+01, K_norm=4.4000e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=7.4500e+01, K_norm=4.4000e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.4500e+01, K_norm=1.3360e+03, logits_norm=3.4400e+02. Max val=9.2500e+00, Min val=-8.6250e+00
-[DBG L0 step=5 PRE-ROPE] Q_norm=9.5500e+01, K_norm=4.4500e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=9.5500e+01, K_norm=4.4500e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=9.5500e+01, K_norm=1.3360e+03, logits_norm=4.7800e+02. Max val=1.0125e+01, Min val=-9.7500e+00
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[1456] global_tc=1456 phys_before=376 concat_len=377 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.7500e+01, K_norm=7.4000e+02, logits_norm=3.3800e+02. Max val=1.1562e+01, Min val=-1.5688e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=5.9750e+01, K_norm=3.6000e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=5.9750e+01, K_norm=3.6000e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.9750e+01, K_norm=7.4000e+02, logits_norm=2.5800e+02. Max val=7.1250e+00, Min val=-1.4875e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=6.5500e+01, K_norm=3.9000e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=6.5500e+01, K_norm=3.8750e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.5500e+01, K_norm=7.4000e+02, logits_norm=2.6000e+02. Max val=7.9688e+00, Min val=-1.6125e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=7.3500e+01, K_norm=4.4250e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=7.3500e+01, K_norm=4.4250e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.3500e+01, K_norm=7.4000e+02, logits_norm=3.0800e+02. Max val=1.1062e+01, Min val=-1.7000e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=5.4750e+01, K_norm=3.8750e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=5.4750e+01, K_norm=3.8750e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.4750e+01, K_norm=7.4400e+02, logits_norm=2.5300e+02. Max val=8.6875e+00, Min val=-1.2688e+01
 [DBG L0 step=0 PRE-ROPE] Q_norm=3.5040e+03, K_norm=2.0000e+03
 [DBG L0 step=0 POST-ROPE] Q_norm=3.5040e+03, K_norm=2.0000e+03
 [DBG L0 step=0 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=3.5040e+03, K_norm=2.0000e+03, logits_norm=4.8128e+04. Max val=1.9250e+01, Min val=-3.3750e+01
 [DBG L0 step=1 PRE-ROPE] Q_norm=8.1500e+01, K_norm=4.4000e+01
 [DBG L0 step=1 POST-ROPE] Q_norm=8.2000e+01, K_norm=4.4000e+01
-[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.2000e+01, K_norm=1.7440e+03, logits_norm=8.2000e+02. Max val=1.3250e+01, Min val=-7.1875e+00
-[DBG L0 step=2 PRE-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=2 POST-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.9500e+01, K_norm=1.7440e+03, logits_norm=8.4800e+02. Max val=9.0000e+00, Min val=-8.3125e+00
-[DBG L0 step=3 PRE-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=3 POST-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.9500e+01, K_norm=1.7440e+03, logits_norm=9.0400e+02. Max val=9.6875e+00, Min val=-9.6875e+00
-[DBG L0 step=4 PRE-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=4 POST-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.9500e+01, K_norm=1.7440e+03, logits_norm=8.5200e+02. Max val=9.7500e+00, Min val=-8.6875e+00
-[DBG L0 step=5 PRE-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=5 POST-ROPE] Q_norm=6.9500e+01, K_norm=4.0000e+01
-[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=6.9500e+01, K_norm=1.7440e+03, logits_norm=7.6000e+02. Max val=9.6875e+00, Min val=-6.7812e+00
-   📊 lcc (seed=42) | code_sim_score: 0.0695 ± 0.0511
+[STEP1-CACHE current] cache_type=DynamicCache q_len=1 pos_ids=[2509] global_tc=2509 phys_before=581 concat_len=582 use_cache=True
+[DBG L0 step=1 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=8.2000e+01, K_norm=8.9600e+02, logits_norm=4.6200e+02. Max val=1.3250e+01, Min val=-1.9250e+01
+[DBG L0 step=2 PRE-ROPE] Q_norm=4.9500e+01, K_norm=3.2750e+01
+[DBG L0 step=2 POST-ROPE] Q_norm=4.9500e+01, K_norm=3.2750e+01
+[DBG L0 step=2 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=4.9500e+01, K_norm=8.9600e+02, logits_norm=3.4600e+02. Max val=5.6875e+00, Min val=-1.2125e+01
+[DBG L0 step=3 PRE-ROPE] Q_norm=5.8000e+01, K_norm=3.3750e+01
+[DBG L0 step=3 POST-ROPE] Q_norm=5.8000e+01, K_norm=3.3750e+01
+[DBG L0 step=3 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.8000e+01, K_norm=9.0000e+02, logits_norm=3.9800e+02. Max val=7.1875e+00, Min val=-1.3750e+01
+[DBG L0 step=4 PRE-ROPE] Q_norm=5.8000e+01, K_norm=3.3750e+01
+[DBG L0 step=4 POST-ROPE] Q_norm=5.8000e+01, K_norm=3.3750e+01
+[DBG L0 step=4 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=5.8000e+01, K_norm=9.0000e+02, logits_norm=3.8800e+02. Max val=7.4062e+00, Min val=-1.4188e+01
+[DBG L0 step=5 PRE-ROPE] Q_norm=7.7500e+01, K_norm=4.3750e+01
+[DBG L0 step=5 POST-ROPE] Q_norm=7.7500e+01, K_norm=4.3750e+01
+[DBG L0 step=5 LOGITS] q_proj_W=7.4000e+01, k_proj_W=4.7750e+01, Q_norm=7.7500e+01, K_norm=9.0000e+02, logits_norm=4.5400e+02. Max val=1.0188e+01, Min val=-1.6250e+01
+   📊 lcc (seed=42) | code_sim_score: 0.1715 ± 0.0788
 Completed lcc (Seed 42): Evaluated 20 instances.
 
 All evaluations complete. Results saved to long_bench_sticky_metrics.npz
