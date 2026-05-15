@@ -8,10 +8,10 @@ except ImportError:
 
 # Backend selection is controlled by USE_FLASH_ATTENTION in sticky_config.
 # tracking_flag only controls whether the TrackingManager is active inside
-# the cache — it does NOT change the attention compute backend.
+# the cache; it does not change the attention compute backend.
 #
-#   USE_FLASH_ATTENTION=1 → Flash Attention v2 backend (module_flash.py)
-#   USE_FLASH_ATTENTION=0 → Standard SDPA backend (module.py)  ← default
+#   USE_FLASH_ATTENTION=1 -> Flash Attention v2 backend (module_flash.py)
+#   USE_FLASH_ATTENTION=0 -> Standard SDPA backend (module.py), default
 #
 # The SDPA backend works on any GPU without flash_attn installed and is
 # required for the run_longbench_sticky evaluation path.
@@ -21,56 +21,32 @@ except (ImportError, AttributeError):
     try:
         from sticky_config import USE_FLASH_ATTENTION as _use_fa
     except (ImportError, AttributeError):
-        _use_fa = 0  # default: SDPA backend
+        _use_fa = 0
 
 if _use_fa == 1:
     from src.models.sticky_llama_attention_fast_attention import STICKYLlamaAttention
 else:
     from src.models.sticky_llama_attention import STICKYLlamaAttention
 
+
 class STICKYLlamaForCausalLM(LlamaForCausalLM):
     def __init__(self, config, **kwargs):
-        # Modern transformers (>= 4.43) handles "llama3" rope_type natively.
-        # For older transformers that crash on unknown rope types, we sanitize
-        # rope_scaling BEFORE calling super().__init__() so we never call it twice.
-        # Calling super().__init__() twice on a partially-initialised object causes
-        # self.model.layers to be None → 'NoneType' object is not subscriptable.
-        rope_scaling_backup = getattr(config, "rope_scaling", None)
+        # Match originalQevict exactly: initialize the parent HF Llama stack with
+        # rope_scaling stripped, then install our custom attention layers with
+        # the original config. This keeps HF's internal rotary path out of the
+        # parent construction while preserving Llama 3 RoPE in STICKYLlamaAttention.
+        safe_config = copy.deepcopy(config)
+        if hasattr(safe_config, "rope_scaling"):
+            safe_config.rope_scaling = None
 
-        # Probe whether super().__init__ will accept this rope_scaling without
-        # actually running it — we do a lightweight structural check instead.
-        rope_scaling = getattr(config, "rope_scaling", None)
-        if rope_scaling is not None and isinstance(rope_scaling, dict):
-            rope_type = rope_scaling.get("type") or rope_scaling.get("rope_type", "")
-            allowed = {"linear", "dynamic", "llama3", "yarn", "longrope", ""}
-            if rope_type not in allowed:
-                # Unknown type — clear it now so super().__init__ won't crash
-                config.rope_scaling = None
+        super().__init__(safe_config)
 
-        try:
-            super().__init__(config)
-        except (ValueError, TypeError, KeyError) as e:
-            # Last-resort fallback: strip rope_scaling and retry.
-            # Only reached if the structural check above missed something.
-            import warnings
-            warnings.warn(
-                f"STICKYLlamaForCausalLM: super().__init__ failed ({e}). "
-                "Retrying after clearing rope_scaling — this should not normally happen."
-            )
-            # We must NOT call super().__init__() again on the same object.
-            # Create a fresh config copy for the retry instead.
-            config_copy = copy.deepcopy(config)
-            config_copy.rope_scaling = None
-            super().__init__(config_copy)
-
-        # Always restore the original rope_scaling on the live config object
-        config.rope_scaling = rope_scaling_backup
         self.config = config
 
         for layer_idx in range(len(self.model.layers)):
             self.model.layers[layer_idx].self_attn = STICKYLlamaAttention(config, layer_idx)
 
-        print(f"Loaded STICKYLlamaForCausalLM — {len(self.model.layers)} layers, backend={'flash' if _use_fa else 'sdpa'}")
+        print(f"Loaded STICKYLlamaForCausalLM - {len(self.model.layers)} layers, backend={'flash' if _use_fa else 'sdpa'}")
 
     # NOTE: _get_cache() is intentionally NOT overridden.
     #
@@ -80,7 +56,7 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
     # by reading/writing via the cache.key_cache / cache.value_cache lists.
     #
     # If _get_cache IS called by a particular HF version, DynamicCache works
-    # fine — our module updates it in place.
+    # fine; our module updates it in place.
 
     def _get_true_global_position(self):
         """Read global_token_counter from layer 0's kv_cache.
@@ -90,7 +66,7 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
         """
         try:
             layer0_attn = self.model.layers[0].self_attn
-            if hasattr(layer0_attn, 'kv_cache'):
+            if hasattr(layer0_attn, "kv_cache"):
                 return int(layer0_attn.kv_cache.global_token_counter.item())
         except (IndexError, AttributeError):
             pass
@@ -101,49 +77,31 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
     ):
         """Prepare inputs for autoregressive generation.
 
-        CRITICAL FIX: After eviction compresses the cache (e.g. 2800 → 578),
-        DynamicCache.get_seq_length() returns 578.  HF's super() method uses
-        this to compute cache_position=[578] and position_ids=[[578]], both
-        wildly wrong.  LlamaModel.forward() then pre-computes wrong
-        position_embeddings and a wrong causal mask from these values.
-
-        Even though our attention module overrides position_ids internally,
-        the damage is done at the model level before our module is called.
-        We fix this by overriding cache_position and position_ids in the
-        model_inputs dict with the TRUE global sequence position.
+        After eviction compresses the cache, HF's super() method can compute
+        cache_position and position_ids from the physical cache length. Those
+        are wrong for Sticky KV because RoPE and causal alignment need the true
+        global token position, so we overwrite them when a cache is present.
         """
         model_inputs = super().prepare_inputs_for_generation(
-            input_ids, past_key_values=past_key_values, attention_mask=attention_mask,
-            inputs_embeds=inputs_embeds, **kwargs
+            input_ids,
+            past_key_values=past_key_values,
+            attention_mask=attention_mask,
+            inputs_embeds=inputs_embeds,
+            **kwargs,
         )
 
         if past_key_values is not None:
             device = input_ids.device
 
             # Force single-token decode regardless of how super() sliced input_ids.
-            # The physical cache is compressed by eviction, so HF thinks fewer
-            # tokens have been processed and may try to feed multiple tokens.
+            # The physical cache is compressed by eviction, so HF may otherwise
+            # think fewer tokens have been processed and feed multiple tokens.
             model_inputs["input_ids"] = input_ids[:, -1:]
 
             # Ensure the cache object flows through.
             model_inputs["past_key_values"] = past_key_values
             model_inputs["use_cache"] = True
 
-            # ------------------------------------------------------------------
-            # FIX: Override cache_position and position_ids with the TRUE
-            # global sequence position from global_token_counter.
-            #
-            # Without this, HF computes:
-            #   cache_position = [578]      (from compressed cache)
-            #   position_ids   = [[578]]    (from cache_position)
-            # Both are wrong — the true position is ~2800+ for a 2800-token prompt.
-            #
-            # LlamaModel.forward() uses these to:
-            #   1. Pre-compute position_embeddings (wrong cos/sin for RoPE)
-            #   2. Compute _update_causal_mask (wrong mask dimensions/alignment)
-            # Our attention module overrides position_ids and mask internally,
-            # but it's safer to fix them here so ALL HF code sees correct values.
-            # ------------------------------------------------------------------
             global_tc = self._get_true_global_position()
             if global_tc is not None:
                 model_inputs["cache_position"] = torch.tensor(
@@ -152,6 +110,5 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
                 model_inputs["position_ids"] = torch.tensor(
                     [[global_tc]], dtype=torch.long, device=device
                 )
-
 
         return model_inputs
