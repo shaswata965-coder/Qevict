@@ -239,8 +239,9 @@ class STICKYLlamaAttention(nn.Module):
         # 5. Rotary Positional Embeddings
         # ------------------------------------------------------------------
         kv_seq_len = key_states.shape[-2] + phys_past_len
+        max_pos = int(position_ids.max().item()) if position_ids.numel() > 0 else (q_len - 1)
         cos, sin = self.rotary_emb(
-            value_states, seq_len=max(kv_seq_len, position_ids.max().item() + 1)
+            value_states, seq_len=max(kv_seq_len, max_pos + 1)
         )
         
 
