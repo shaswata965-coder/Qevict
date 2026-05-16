@@ -823,6 +823,73 @@ Expected outcomes:
 | Score improves | Prompt schedule mismatch vs DefensiveKV/original matters |
 | No improvement | Look at cache content and rebuild |
 
+## debug_compare.py — New Standalone Diagnostic Script
+
+Added: `debug_compare.py` in the repo root.
+
+### What it does
+
+Runs one model at a time (original or current) on LCC sample 0, generates tokens
+one-by-one, and captures per-step state into a JSON trace file.  Two traces can
+then be diffed to find the EXACT step where outputs diverge.
+
+Captured per step (layer 0 only):
+- `token_id` — OUTPUT token generated at this step (first DIFF in diff table = first divergence)
+- `input_token_id` — token consumed as input (== previous step's output)
+- `pos_ids`, `cache_position` — from `prepare_inputs_for_generation` after overrides
+- `phys_before`, `phys_after` — physical KV length before/after this decode step
+- `cache_seq_len` — what `DynamicCache.get_seq_length()` returned (what HF used before our override)
+- `global_tc`, `global_tc_post` — `global_token_counter` before/after the `kv_cache()` increment
+- `tokens_since` — `eviction_manager.tokens_since_last_review` after tally
+- `qcache_active`, `q_windows` — Q-cache state
+- `q_norm`, `k_norm`, `out_norm` — projection output norms at layer 0
+
+### Run commands
+
+```bash
+# On Kaggle/Linux, from the Qevict repo root:
+python debug_compare.py --mode original --steps 30 --out trace_original.json
+python debug_compare.py --mode current  --steps 30 --out trace_current.json
+
+# Diff the two:
+python debug_compare.py --diff trace_original.json trace_current.json
+
+# Test H4: disable Q-cache
+python debug_compare.py --mode current --q_ratio 0  --steps 30 --out trace_noq.json
+
+# Test H2: disable decode eviction
+python debug_compare.py --mode current --omega 9999 --steps 30 --out trace_noev.json
+
+# Diff noq vs original to see if q-cache is culprit:
+python debug_compare.py --diff trace_original.json trace_noq.json
+```
+
+### How to interpret diff output
+
+The diff table shows one row per decode step.  `OUT_A` / `OUT_B` = the token
+**generated** at that step by model A / B.  The first row where `DIFF` appears
+is the **exact step** where the two implementations generate different tokens.
+
+At that row, the deep field dump shows:
+- Whether `phys_before` differs → cache writeback or read-back mismatch
+- Whether `pos_ids` / `cache_position` differ → position/RoPE mismatch
+- Whether `global_tc` differs → counter desync
+- Whether `qcache_active` differs → Q-cache activated at different times
+- `cache_seq_len` vs `global_tc` — if `cache_seq_len` ≠ `global_tc`, HF's
+  `super().prepare_inputs_for_generation()` computed wrong `cache_position`
+  before our override (this is the key H10 check)
+
+### Decision tree from diff results
+
+| Observation | Most likely cause |
+|---|---|
+| First DIFF at step 0 | Prefill output or step-0 KV state already wrong |
+| First DIFF at step 7 or 8 | First decode eviction cycle corrupts context (H2 / H4) |
+| `phys_before` differs at first DIFF | `_write_kv_to_cache` / `_read_kv_from_cache` mismatch |
+| `cache_seq_len` ≠ `global_tc` | `StickyDynamicLayer.get_seq_length()` wrong → HF mask/position wrong |
+| `qcache_active` True in current, False in original | Q-cache activating too early or with wrong data |
+| All fields match but token differs | Attention computation diverges with same inputs — tensor content difference |
+
 ## How To Interpret The Next Logs
 
 Step-1 length/position match is already established. The next logs should be interpreted as a divergence search.
