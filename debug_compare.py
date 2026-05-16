@@ -461,10 +461,22 @@ with torch.inference_mode():
         _per_step.clear()
         input_tok = next_tok  # the token this step processes as input
 
+        # HF 4.57 requires cache_position to be passed to prepare_inputs_for_generation
+        # when called outside generate().  Compute it from the cache's reported seq length
+        # (for StickyDynamicLayer this is cumulative_length = global_token_counter).
+        # Our STICKYLlamaForCausalLM.prepare_inputs_for_generation overrides it anyway,
+        # but HF's _cache_dependant_input_preparation crashes if it receives None.
+        try:
+            _cache_seq = pkv.get_seq_length()
+        except Exception:
+            _cache_seq = all_ids.shape[1] - 1
+        _cache_pos_arg = torch.tensor([_cache_seq], dtype=torch.long, device=device)
+
         model_inputs = model.prepare_inputs_for_generation(
             all_ids,
             past_key_values=pkv,
             attention_mask=torch.ones(1, all_ids.shape[1], device=device),
+            cache_position=_cache_pos_arg,
         )
         out = model(**model_inputs, return_dict=True, use_cache=True)
         pkv = out.past_key_values
