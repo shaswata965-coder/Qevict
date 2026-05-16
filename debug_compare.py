@@ -176,22 +176,33 @@ with open(lcc_path) as f:
         if line:
             samples.append(json.loads(line))
 
+# Build the LCC prompt the same way engine.py does via data_loader.build_prompt:
+#   context_prompt["lcc"] = "Please complete the code given below. \n{context}"
+#   question_prompt["lcc"] = "Next line of code:\n"
+# The "context" JSONL field holds the code body; "input" is a short question stub.
+def _build_lcc_prompt(ex):
+    ctx = ex.get("context") or ex.get("document") or ""
+    if not ctx.strip():
+        raise ValueError("empty context")
+    return "Please complete the code given below. \n" + ctx + "\nNext line of code:\n"
+
 # Filter (same logic as engine.py: skip >5000 tokens)
 MAX_FILTER = 5000
-MAX_PROMPT = args.max_tokens
 filtered = []
 for ex in samples:
-    text = ex.get("input", ex.get("prompt", ""))
-    ntok = tokenizer(text, add_special_tokens=False, return_tensors="pt")["input_ids"].shape[1]
+    try:
+        prompt = _build_lcc_prompt(ex)
+    except ValueError:
+        continue
+    ntok = tokenizer(prompt, add_special_tokens=False, return_tensors="pt")["input_ids"].shape[1]
     if ntok <= MAX_FILTER:
-        filtered.append((ex, ntok))
+        filtered.append((ex, ntok, prompt))
 
 if args.sample >= len(filtered):
     print(f"ERROR: only {len(filtered)} valid samples after filter, asked for index {args.sample}")
     sys.exit(1)
 
-target_ex, prompt_ntok = filtered[args.sample]
-prompt_text  = target_ex.get("input", target_ex.get("prompt", ""))
+target_ex, prompt_ntok, prompt_text = filtered[args.sample]
 ground_truth = target_ex.get("answers", target_ex.get("answer", target_ex.get("output", "")))
 input_ids    = tokenizer(prompt_text, add_special_tokens=False, return_tensors="pt").input_ids
 
