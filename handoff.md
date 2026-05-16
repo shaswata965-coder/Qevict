@@ -1,6 +1,6 @@
 # Sticky KV Cache Debugging Handoff
 
-Last updated: 2026-05-15
+Last updated: 2026-05-16
 
 ## Executive Summary
 
@@ -75,7 +75,8 @@ Recent local modifications include:
 
 | File | Change |
 |---|---|
-| `src/models/attention/module.py` | Added `[STEP1-CACHE current]`, `[DECODE-TRACE current PRE/LOGITS/SCORES/POST/WRITE]`; earlier work added cache dispatch and StickyDynamicLayer writeback |
+| `debug_compare.py` | **NEW** — 584-line standalone diagnostic script; runs original or current on one LCC sample, emits JSON trace per decode step, diffs two traces to find exact divergence step |
+| `src/models/attention/module.py` | Added `[STEP1-CACHE current]`, `[DECODE-TRACE current PRE/LOGITS/SCORES/POST/WRITE]`; earlier work added cache dispatch and StickyDynamicLayer writeback; **NEW** added `position_ids.numel() > 0` guard before `.max()` call at line ~243 |
 | `originalQevict/sticky_llama_attention.py` | Added matching `[STEP1-CACHE original]`, `[DECODE-TRACE original PRE/LOGITS/SCORES/POST]`, and continuous `_dbg_count` |
 | `src/models/sticky_llama_model.py` | Added `[GEN-PREP current]` to expose `input_len`, sliced length, `cache_position`, `position_ids`, and cache type |
 | `originalQevict/sticky_llama_model.py` | Added matching `[GEN-PREP original]` |
@@ -704,52 +705,210 @@ What we can claim:
 
 ## Immediate Next Step
 
-Run the same small LCC diagnostic in both implementations after the new trace hooks:
+**Use `debug_compare.py`** — this is the primary diagnostic tool now. It has been tested
+and confirmed working through prefill (sample 0 prefills 2794 tokens, first token is 197 `'\t'`).
 
-1. Current modular:
+### Step 1: collect traces on Kaggle
 
-```powershell
-python -m src.eval.run_longbench_sticky
+```bash
+# From the Qevict repo root (both commands run on GPU):
+python debug_compare.py --mode original --steps 30 --out trace_original.json
+python debug_compare.py --mode current  --steps 30 --out trace_current.json
 ```
 
-or the Kaggle equivalent entrypoint.
+### Step 2: diff locally (no GPU needed)
 
-2. Original:
-
-```powershell
-cd originalQevict
-python Results/run_longbench_sticky.py
+```bash
+python debug_compare.py --diff trace_original.json trace_current.json
 ```
 
-Then compare the first 10 decode steps and the first `OMEGA=8` review boundary.
+The diff table shows one row per step. Find the first row with `DIFF` — that is the exact
+decode step where the two models diverge. The deep-field dump at that row shows which of
+position/RoPE, physical cache length, counter, or Q-cache state is the source.
 
-The most important fields are:
+### Step 3: run ablations to narrow cause
+
+```bash
+# H4: disable Q-cache entirely
+python debug_compare.py --mode current --q_ratio 0 --steps 30 --out trace_noq.json
+python debug_compare.py --diff trace_original.json trace_noq.json
+
+# H2: disable decode eviction (large omega so no review fires)
+python debug_compare.py --mode current --omega 9999 --steps 30 --out trace_noev.json
+python debug_compare.py --diff trace_original.json trace_noev.json
+```
+
+If `trace_noq` matches original but `trace_current` diverged → Q-cache is culprit (H4).
+If `trace_noev` matches original but `trace_current` diverged → decode eviction is culprit (H2).
+
+### Older DECODE-TRACE approach (still valid but secondary)
+
+The `[DECODE-TRACE current/original PRE/LOGITS/SCORES/POST/WRITE]` hooks in the attention
+module are still present and fire during `run_longbench_sticky` runs. They remain useful for
+any investigation that requires running the full 20-sample eval with real scoring.
+
+Interpretation priority for those logs:
+
+1. `[GEN-PREP]` differs on `cache_position` → test matching original's generation prep.
+2. `[DECODE-TRACE ... PRE]` differs after step 1 while step 1 matched → cache lifecycle/writeback.
+3. `PRE` matches but `LOGITS` diverges → K/V tensor contents or RoPE mismatch.
+4. `LOGITS` matches but `SCORES` or `POST` diverges → softmax/q-cache/QEvict inputs.
+5. Everything matches through `POST` but current `WRITE` causes next-step divergence → `DynamicCache` mutation/get-seq-length semantics.
+
+## Runtime Bugs Fixed During debug_compare.py Development
+
+Three bugs were found and fixed while building `debug_compare.py`. All three were in code
+paths that `model.generate()` silently works around, but a manual decode loop exposes directly.
+
+### Bug 1 — LCC prompt field mismatch (data loading)
+
+**Symptom:**
 
 ```text
-GEN-PREP:      input_len, sliced_len, cache_position, position_ids, pkv_type
-PRE:           pos_ids, global_tc, phys_before, concat_len, tokens_since, gen_step, q_windows, qcache_active
-LOGITS:        main_shape, logits_norm, max, min
-SCORES:        scores_shape, q_scores_shape, output_attn_shape
-POST:          evicted_len, tokens_since, gen_step, q_windows
-current WRITE: cache_seq_len, cache_seen, written_global_tc
+[gen] Prefilling 0 tokens...
+RuntimeError: max(): Expected reduction dim to be specified for input.numel() == 0.
+  Specify the reduction dim with the 'dim' argument.
 ```
 
-Interpretation priority:
+Stack trace pointed to `src/models/attention/module.py` line ~243 (`position_ids.max()`).
 
-1. If `[GEN-PREP]` differs on `cache_position` in a way that correlates with later divergence, test matching original's generation prep more closely.
-2. If `[DECODE-TRACE ... PRE]` differs after step 1 while step 1 matched, focus on cache lifecycle/writeback.
-3. If `PRE` matches but `LOGITS` diverges, compare K/V tensor contents and RoPE inputs.
-4. If `LOGITS` matches but `SCORES` or `POST` diverges, inspect softmax/q-cache/QEvict inputs.
-5. If everything matches through `POST` but current `WRITE` causes next-step divergence, focus on `DynamicCache` mutation/get-seq-length/seen-token semantics.
+**Root cause:**
 
-If these still match, the next diagnostic should compare tensor content directly:
+`debug_compare.py` originally read the LCC sample prompt from `ex.get("input", "")`. The LCC
+JSONL's `"input"` field is an empty stub — the full code body is in `ex["context"]`. Zero
+tokens → empty `input_ids` → empty `position_ids` → `.max()` fails on empty tensor.
 
-- Selected survivor window IDs after prefill.
-- `window_scores` top-k IDs/values for layer 0.
-- Q-cache loser IDs/values.
-- First decode attention top-k physical indices.
-- Rebuild fallback counts.
-- LM-head top-k logits and selected token IDs for both current and original.
+This is the same field that `src/data/data_loader.py` reads correctly as:
+
+```python
+ctx = example.get("context") or example.get("document") or ""
+```
+
+**Fix A — `debug_compare.py` (data loading):**
+
+Added `_build_lcc_prompt(ex)` that mirrors `data_loader.build_prompt` exactly:
+
+```python
+def _build_lcc_prompt(ex):
+    ctx = ex.get("context") or ex.get("document") or ""
+    if not ctx.strip():
+        raise ValueError("empty context")
+    return "Please complete the code given below. \n" + ctx + "\nNext line of code:\n"
+```
+
+**Fix B — `src/models/attention/module.py` (safety guard):**
+
+Added `numel()` guard before `.max()` so a future empty-tensor edge case does not crash silently:
+
+```python
+# Before:
+cos, sin = self.rotary_emb(value_states, seq_len=max(kv_seq_len, position_ids.max().item() + 1))
+
+# After:
+max_pos = int(position_ids.max().item()) if position_ids.numel() > 0 else (q_len - 1)
+cos, sin = self.rotary_emb(value_states, seq_len=max(kv_seq_len, max_pos + 1))
+```
+
+### Bug 2 — HF 4.57 `cache_position=None` crash in manual decode loop
+
+**Symptom** (after prefill succeeded and first token was generated correctly as `197 '\t'`):
+
+```text
+[gen] Prefilling 2794 tokens...
+[gen] Prefill done. First token: 197 ('\t')
+TypeError: 'NoneType' object is not subscriptable
+  File ".../transformers/generation/utils.py", line 523, in _cache_dependant_input_preparation
+    or (cache_position[-1] >= input_ids.shape[1])  # Exception 3
+```
+
+**Root cause:**
+
+HF 4.57's `_cache_dependant_input_preparation()` is called internally from
+`super().prepare_inputs_for_generation()`. It contains a condition chain:
+
+```python
+if cache is None or is_static_cache or past_length == 0:
+    ...  # does not touch cache_position
+# else: falls through to:
+or (cache_position[-1] >= input_ids.shape[1])  # crashes if cache_position is None
+```
+
+In the manual decode loop, none of the early-exit conditions were True (cache exists, not
+static, `past_length > 0`), so execution reached `cache_position[-1]` — but we had not
+passed `cache_position`, so it was `None`.
+
+`model.generate()` pre-computes `cache_position` and always passes it; a manual loop must
+do the same.
+
+**Fix — `debug_compare.py` decode loop:**
+
+```python
+try:
+    _cache_seq = pkv.get_seq_length()
+except Exception:
+    _cache_seq = all_ids.shape[1] - 1
+_cache_pos_arg = torch.tensor([_cache_seq], dtype=torch.long, device=device)
+
+model_inputs = model.prepare_inputs_for_generation(
+    all_ids,
+    past_key_values=pkv,
+    attention_mask=torch.ones(1, all_ids.shape[1], device=device),
+    cache_position=_cache_pos_arg,       # ← prevents NoneType crash
+)
+```
+
+Note: `STICKYLlamaForCausalLM.prepare_inputs_for_generation` immediately overrides this
+with `[global_tc]` anyway, so the value only needs to be non-None to pass the HF guard.
+
+## Expected Output of debug_compare.py
+
+A successful run prints a progress line per step and writes a JSON array of 30 objects.
+
+### Healthy current-mode trace (first 8 steps, no eviction yet)
+
+```text
+step  token_id  pos_ids  phys_before → phys_after  tokens_since  qcache_active  global_tc
+   0      197     2794      634 → 635             1          False        2794
+   1      xxx     2795      635 → 636             2          False        2795
+   ...
+   7      xxx     2801      641 → 642             8          False        2801
+   8      xxx     2802      635 → 636             1          True         2802  ← first eviction fires
+```
+
+At step 7 (`tokens_since == OMEGA == 8`), eviction fires: physical length DROPS from ~642
+back to ~635 (budget), then rises by 1 for the new token. `qcache_active` becomes `True`
+after the first Q-cache windows are filled.
+
+### Key invariant checks
+
+| Check | Healthy value | What failure means |
+|---|---|---|
+| `phys_after = phys_before + 1` for steps 0–6 | True | No premature eviction |
+| `phys_after < phys_before` at step 7 | True | Eviction fired at `OMEGA` boundary |
+| `tokens_since` resets to 1 after eviction | True | Counter reset correctly |
+| `global_tc` increments by 1 each step | True | Counter not double-incremented |
+| `cache_seq_len == global_tc` | True | `StickyDynamicLayer.get_seq_length()` correct (H10 check) |
+| `cache_seq_len != global_tc` | Bad | HF computed wrong cache_position before our override |
+
+### Ablation expected outcomes
+
+| Run | Expected if healthy |
+|---|---|
+| `--q_ratio 0` | `qcache_active` always `False`; same token stream as original if Q-cache was culprit |
+| `--omega 9999` | `tokens_since` counts up forever; no eviction; same output as uncompressed decode if decode eviction was culprit |
+
+## Current Git State
+
+Branch `claude/affectionate-pasteur-086926` has been pushed to remote with the following
+commits (in order, most recent first):
+
+1. Fix HF 4.57 cache_position crash and LCC prompt field in debug_compare.py
+2. Add position_ids.numel() guard in module.py; fix debug_compare.py prompt/decode bugs
+3. Add debug_compare.py standalone diagnostic script
+
+All three commits are on `origin/claude/affectionate-pasteur-086926`. The branch shows
+"ahead 2, behind 1" relative to `origin/main` — this is expected for a worktree tracking
+artifact and does not indicate merge conflicts.
 
 ## Suggested Follow-Up Experiments
 
