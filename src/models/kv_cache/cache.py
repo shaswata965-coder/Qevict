@@ -136,6 +136,13 @@ class STICKYKVCache_LayerWise(nn.Module):
             self.omega * (1 + self.local_num + self.k_windows + self.start_idx) + self.sink_tokens
         )
 
+        # Out-of-bounds fallback instrumentation.
+        # By construction `first_phys + omega <= seq_len` should always hold;
+        # if it doesn't, we drop the offending window instead of silently
+        # zero-filling it. These counters surface the event for debug_compare.py.
+        self.oob_sticky_drops = 0     # windows skipped in _build_physical_cache
+        self.last_oob_event = None    # (gen_step, head, slot, first_phys, omega, seq_len)
+
         # --- Index buffers (registered so .to(device) moves them) ---
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if config is not None and hasattr(config, "max_position_embeddings"):
@@ -455,9 +462,31 @@ class STICKYKVCache_LayerWise(nn.Module):
             found_in_main = match.any(dim=2)
             slot_idx = match.to(torch.uint8).argmax(dim=2)
             first_phys = sink_tokens + slot_idx * omega
-            # Guard: exclude windows whose physical span exceeds the old cache
-            in_bounds = (first_phys + omega) <= seq_len
-            found_in_main = found_in_main & in_bounds
+
+            # Invariant: pre_block_wids was built from
+            #   logical_id_map[:, sink_tokens + slot*omega] for slot < num_old_blocks
+            # so any slot we just matched satisfies
+            #   first_phys + omega == sink_tokens + (slot+1)*omega <= compressed_len <= seq_len.
+            # If the invariant ever breaks, surface it instead of silently
+            # zero-filling — drop the offending entries and log.
+            oob = found_in_main & ((first_phys + omega) > seq_len)
+            if bool(oob.any()):
+                n_drop = int(oob.sum().item())
+                self.oob_sticky_drops += n_drop
+                oob_heads, oob_slots = oob.nonzero(as_tuple=True)
+                h0 = int(oob_heads[0].item())
+                s0 = int(oob_slots[0].item())
+                self.last_oob_event = (
+                    int(em.gen_step), h0, s0,
+                    int(first_phys[h0, s0].item()), int(omega), int(seq_len),
+                )
+                print(
+                    f"[WARN STICKY-OOB layer={self.layer_idx} gen_step={em.gen_step}] "
+                    f"dropping {n_drop} sticky windows; example: head={h0} slot={s0} "
+                    f"first_phys={int(first_phys[h0, s0].item())} omega={omega} seq_len={seq_len}",
+                    flush=True,
+                )
+                found_in_main = found_in_main & ~oob
         else:
             found_in_main = torch.zeros(num_heads, curr_k, device=device, dtype=torch.bool)
             first_phys = torch.zeros(num_heads, curr_k, device=device, dtype=torch.long)
@@ -564,6 +593,8 @@ class STICKYKVCache_LayerWise(nn.Module):
         self.quantization_manager.reset()
         self.tracking_manager.reset()
         self._quant_bytes_len = self.head_dim if self.quant_bit_width == 8 else (self.head_dim // 2)
+        self.oob_sticky_drops = 0
+        self.last_oob_event = None
 
     # ------------------------------------------------------------------
     # Accessor helpers (preserve original method signatures)

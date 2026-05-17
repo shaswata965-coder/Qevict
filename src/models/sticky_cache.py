@@ -1,48 +1,28 @@
 """
 models/sticky_cache.py
 ----------------------
-Cache layer and cache wrapper for the Sticky KV-cache eviction pipeline.
-
 StickyDynamicLayer — a DynamicLayer subclass that tracks cumulative sequence
-length through eviction/compression cycles.  Modelled after HF's built-in
+length through eviction/compression cycles. Modelled after HF's built-in
 DynamicSlidingWindowLayer (used by SinkCache), which solves the same problem:
 the physical KV tensor is shorter than the true sequence position.
 
     get_seq_length()  → returns cumulative_length (true total tokens seen)
-    get_mask_sizes()  → returns sizes consistent with the physical KV tensor
-                        so that HF's create_causal_mask produces a mask whose
-                        last dimension matches the actual KV length.
+    get_mask_sizes()  → returns (phys_len + query_length, 0) so HF's
+                        create_causal_mask produces a mask whose last
+                        dimension matches the K tensor our attention
+                        module actually consumes (past_kv ++ new_key).
 
-StickyCache — kept for backward compatibility.
+Pinned to transformers == 4.57 — the only cache contract we support.
 """
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, List
-
 import torch
 
-try:
-    from transformers.cache_utils import DynamicLayer
-except ImportError:
-    DynamicLayer = None  # type: ignore
-
-try:
-    from transformers import Cache
-except ImportError:
-    Cache = object  # type: ignore
+from transformers.cache_utils import DynamicLayer
 
 
-# =========================================================================
-# StickyDynamicLayer — drop-in replacement for DynamicLayer
-# =========================================================================
-
-# Inherit from DynamicLayer so HF's isinstance(layer, CacheLayerMixin)
-# checks pass correctly in Cache.get_seq_length() and Cache.get_mask_sizes().
-_StickyBase = DynamicLayer if DynamicLayer is not None else object
-
-
-class StickyDynamicLayer(_StickyBase):
+class StickyDynamicLayer(DynamicLayer):
     """A cache layer that tracks true cumulative sequence length through
     eviction, following the same pattern as HF's DynamicSlidingWindowLayer.
 
@@ -56,8 +36,7 @@ class StickyDynamicLayer(_StickyBase):
     is_compileable = False
 
     def __init__(self):
-        if _StickyBase is not object:
-            super().__init__()
+        super().__init__()
         self.keys: torch.Tensor | None = None
         self.values: torch.Tensor | None = None
         self.is_initialized = False
@@ -172,83 +151,3 @@ class StickyDynamicLayer(_StickyBase):
             self.values = self.values[indices, ...]
 
 
-# =========================================================================
-# StickyCache — legacy wrapper (kept for backward compatibility)
-# =========================================================================
-
-class StickyCache(Cache):
-    """Transparent KV-tensor carrier for the Sticky eviction pipeline.
-
-    Unlike DynamicCache, this class does NOT concatenate tensors on update().
-    It simply holds whatever (k, v) tensors our attention module writes after
-    each eviction cycle.
-    """
-
-    def __init__(self, num_layers: int = 0):
-        super().__init__()
-        self._num_layers = num_layers
-
-        # Real mutable lists — same attribute names as DynamicCache so that
-        # both HF internals and our own code can read/write via
-        #   cache.key_cache[layer_idx]  and  cache.value_cache[layer_idx]
-        self.key_cache: List[torch.Tensor] = [torch.empty(0) for _ in range(num_layers)]
-        self.value_cache: List[torch.Tensor] = [torch.empty(0) for _ in range(num_layers)]
-
-        # _seen_tokens tracks the TRUE total sequence length (not compressed).
-        # HF's generate loop reads this to compute cache_position and causal
-        # masks.  We update it from the attention module at layer 0.
-        self._seen_tokens = 0
-
-    # ------------------------------------------------------------------
-    # Our API — used by module.py / module_flash.py
-    # ------------------------------------------------------------------
-
-    def get_kv(self, layer_idx: int) -> Optional[Tuple[torch.Tensor, torch.Tensor]]:
-        """Return the stored (k, v) tuple for this layer, or None at prefill."""
-        if layer_idx < len(self.key_cache):
-            k = self.key_cache[layer_idx]
-            v = self.value_cache[layer_idx]
-            if k.numel() > 0:
-                return (k, v)
-        return None
-
-    def set_kv(self, layer_idx: int, kv: Tuple[torch.Tensor, torch.Tensor]) -> None:
-        """Store post-eviction (k, v) tensors for this layer."""
-        while len(self.key_cache) <= layer_idx:
-            self.key_cache.append(torch.empty(0))
-            self.value_cache.append(torch.empty(0))
-        self.key_cache[layer_idx] = kv[0]
-        self.value_cache[layer_idx] = kv[1]
-
-    # ------------------------------------------------------------------
-    # HF Cache abstract method implementations (>= 4.36)
-    # ------------------------------------------------------------------
-
-    def update(
-        self,
-        key_states: torch.Tensor,
-        value_states: torch.Tensor,
-        layer_idx: int,
-        cache_kwargs=None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """HF calls this during forward().  We ignore it — our attention
-        module manages the cache directly via set_kv / key_cache writes."""
-        existing = self.get_kv(layer_idx)
-        if existing is not None:
-            return existing
-        return key_states, value_states
-
-    def get_seq_length(self, layer_idx: int = 0) -> int:
-        """Return physical sequence length for the given layer (or 0 if empty)."""
-        if layer_idx < len(self.key_cache):
-            k = self.key_cache[layer_idx]
-            if k.numel() > 0:
-                return k.shape[-2]
-        return 0
-
-    def get_max_length(self) -> Optional[int]:
-        """Unbounded — we don't enforce a static max length."""
-        return None
-
-    def __len__(self) -> int:
-        return self._num_layers

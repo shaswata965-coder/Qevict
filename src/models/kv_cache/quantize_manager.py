@@ -48,6 +48,13 @@ class QuantizationManager(BaseQuantizationManager):
         self.q_retired_meta: Dict = {}
         self.rotary_emb: Optional[torch.nn.Module] = None
 
+        # OOB instrumentation — counts how many non-retained windows had
+        # nr_phys_start + omega > seq_len during rebuild. Should remain 0
+        # in correct operation; non-zero indicates the index math is wrong.
+        self.oob_qcache_b_drops = 0
+        self.oob_qcache_c_drops = 0
+        self.last_qcache_oob_event = None
+
     def to(self, device: torch.device) -> QuantizationManager:
         if self._q_cache_k_quant is not None: self._q_cache_k_quant = self._q_cache_k_quant.to(device)
         if self._q_cache_v_quant is not None: self._q_cache_v_quant = self._q_cache_v_quant.to(device)
@@ -187,12 +194,33 @@ class QuantizationManager(BaseQuantizationManager):
                 nr_match  = (nr_block_wids == nr_wids.unsqueeze(1))
                 nr_found  = nr_match.any(dim=1)
                 nr_slot   = nr_match.to(torch.uint8).argmax(dim=1)
-                # Physical start = sink_tokens + block_slot * omega
+                # Physical start = sink_tokens + block_slot * omega.
                 # pre_block_wids was built from logical_id_map[:, sink_tokens + slot*omega]
-                # so nr_slot is the block index in the compressed cache, post-sink region
+                # for slot < num_old_blocks, so any matched entry must satisfy
+                #   nr_phys_start + omega <= sink_tokens + num_old_blocks*omega <= compressed_len <= seq_len.
+                # If that invariant ever breaks, surface it — don't silently flip found→missing.
                 nr_phys_start = self.sink_tokens + nr_slot * omega
-                # Guard: exclude windows whose physical span exceeds the cache
-                nr_found = nr_found & ((nr_phys_start + omega) <= seq_len)
+                oob = nr_found & ((nr_phys_start + omega) > seq_len)
+                if bool(oob.any()):
+                    n_drop = int(oob.sum().item())
+                    self.oob_qcache_b_drops += n_drop
+                    oob_pos = int(oob.nonzero(as_tuple=True)[0][0].item())
+                    self.last_qcache_oob_event = (
+                        "rebuild_pre_path",
+                        int(nr_h[oob_pos].item()),
+                        int(nr_phys_start[oob_pos].item()),
+                        int(omega),
+                        int(seq_len),
+                    )
+                    print(
+                        f"[WARN QCACHE-OOB layer={layer_idx}] "
+                        f"dropping {n_drop} non-retained windows; example: "
+                        f"head={int(nr_h[oob_pos].item())} "
+                        f"nr_phys_start={int(nr_phys_start[oob_pos].item())} "
+                        f"omega={omega} seq_len={seq_len}",
+                        flush=True,
+                    )
+                    nr_found = nr_found & ~oob
             else:
                 nr_found = torch.zeros(nr_count, device=device, dtype=torch.bool)
                 nr_phys_start = torch.zeros(nr_count, device=device, dtype=torch.long)
@@ -247,13 +275,28 @@ class QuantizationManager(BaseQuantizationManager):
                 wid_val = nr_wids_list[idx]
                 if nr_found_list[idx]:
                     ps  = int(nr_phys_start[idx].item())
-                    if ps + omega <= seq_len:
-                        k_fp = past_key_values[0][0, h_val, ps:ps + omega]
-                        v_fp = past_key_values[1][0, h_val, ps:ps + omega]
-                    else:
-                        k_fp = torch.zeros(omega, head_dim, device=device, dtype=dtype_fp)
-                        v_fp = torch.zeros(omega, head_dim, device=device, dtype=dtype_fp)
+                    # The pre-rebuild OOB filter above already cleared nr_found
+                    # for any (ps + omega > seq_len) case, so this hard-asserts
+                    # the invariant rather than zero-filling silently.
+                    if ps + omega > seq_len:
+                        self.oob_qcache_c_drops += 1
+                        self.last_qcache_oob_event = (
+                            "path_c", int(h_val), int(ps), int(omega), int(seq_len),
+                        )
+                        print(
+                            f"[WARN QCACHE-OOB-C layer={layer_idx}] "
+                            f"head={h_val} ps={ps} omega={omega} seq_len={seq_len} — "
+                            f"skipping wid={wid_val}",
+                            flush=True,
+                        )
+                        continue
+                    k_fp = past_key_values[0][0, h_val, ps:ps + omega]
+                    v_fp = past_key_values[1][0, h_val, ps:ps + omega]
                 else:
+                    # Window not found in main cache — Path C falls back to
+                    # archived scale/zp without fresh data. Original behavior
+                    # zero-filled here; keep parity but record the event so
+                    # quality-regression analysis can correlate.
                     k_fp = torch.zeros(omega, head_dim, device=device, dtype=dtype_fp)
                     v_fp = torch.zeros(omega, head_dim, device=device, dtype=dtype_fp)
                 meta = self.q_retired_meta[(wid_val, h_val)]
@@ -293,6 +336,9 @@ class QuantizationManager(BaseQuantizationManager):
         self._clear_cache()
         self.q_retired_meta = {}
         self._quant_bytes_len = self.head_dim if self.quant_bit_width == 8 else (self.head_dim // 2)
+        self.oob_qcache_b_drops = 0
+        self.oob_qcache_c_drops = 0
+        self.last_qcache_oob_event = None
 
 
 # ---------------------------------------------------------------------------
@@ -305,6 +351,10 @@ class NoOpQuantizationManager(BaseQuantizationManager):
     All properties return None and all methods are safe no-ops, eliminating
     every ``if self.q_windows_count > 0:`` branch from the coordinator.
     """
+
+    oob_qcache_b_drops = 0
+    oob_qcache_c_drops = 0
+    last_qcache_oob_event = None
 
     @property
     def q_cache_k_quant(self): return None

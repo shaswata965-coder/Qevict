@@ -3,7 +3,8 @@ attention/module_flash.py
 -------------------------
 STICKYLlamaAttention — Flash-Attention v2 backend.
 
-Same cache and position_ids logic as module.py (StickyCache + global_token_counter).
+Pinned to transformers == 4.57. Same cache contract as module.py
+(DynamicCache with StickyDynamicLayer + global_token_counter).
 Prefill uses Flash-Attention + chunked tracking scores (ops_flash.py).
 Decoding reuses the shared SDPA ops (ops.py).
 """
@@ -75,31 +76,25 @@ class STICKYLlamaAttention(nn.Module):
         hidden_states: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
-        past_key_value=None,
+        past_key_values=None,
         output_attentions: bool = False,
         use_cache: bool = False,
-        past_key_values=None,
         **kwargs,
     ):
         bsz, q_len, _ = hidden_states.size()
 
-        # HF >= 4.46 passes "past_key_values" (plural), older passes "past_key_value" (singular).
-        # Accept whichever one is non-None.
-        if past_key_value is None and past_key_values is not None:
-            past_key_value = past_key_values
-
         # ------------------------------------------------------------------
-        # 1. Extract (k, v) tuple from any HF cache type
+        # 1. Extract (k, v) tuple from the DynamicCache (transformers 4.57)
         # ------------------------------------------------------------------
-        past_kv, cache_obj = _read_kv_from_cache(past_key_value, self.layer_idx)
+        past_kv, cache_obj = _read_kv_from_cache(past_key_values, self.layer_idx)
 
         # Debug counter (layer 0 only)
         if self.layer_idx == 0 and not hasattr(self, '_dbg_count'):
             self._dbg_count = 0
 
         if self.layer_idx == 0 and self._dbg_count < 5:
-            cache_type = type(past_key_value).__name__ if past_key_value is not None else 'None'
-            cache_id = id(past_key_value) if past_key_value is not None else 0
+            cache_type = type(past_key_values).__name__ if past_key_values is not None else 'None'
+            cache_id = id(past_key_values) if past_key_values is not None else 0
             past_kv_shape = past_kv[0].shape if past_kv is not None else 'None'
             print(f"[DBG L0 step={self._dbg_count}] q_len={q_len} cache_type={cache_type} (id={cache_id}) past_kv_shape={past_kv_shape}", flush=True)
 
@@ -224,9 +219,9 @@ class STICKYLlamaAttention(nn.Module):
         if use_cache and evicted_kv is not None and cache_obj is not None:
             global_tc = int(self.kv_cache.global_token_counter.item())
             _write_kv_to_cache(cache_obj, self.layer_idx, evicted_kv, global_tc)
-            
+
             if self.layer_idx == 0 and self._dbg_count <= 5:
-                print(f"[DBG L0 writeback step={self._dbg_count - 1}] cache_id={id(cache_obj)} _seen_tokens={getattr(cache_obj, '_seen_tokens', 'N/A')}", flush=True)
+                print(f"[DBG L0 writeback step={self._dbg_count - 1}] cache_id={id(cache_obj)} cumulative_length={cache_obj.layers[self.layer_idx].cumulative_length}", flush=True)
 
         # ------------------------------------------------------------------
         # 8. Output projection
