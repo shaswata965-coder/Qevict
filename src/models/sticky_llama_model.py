@@ -1,10 +1,6 @@
 import torch
 import copy
 from transformers.models.llama.modeling_llama import LlamaForCausalLM
-try:
-    from src.models.sticky_cache import StickyCache
-except ImportError:
-    from .sticky_cache import StickyCache
 
 # Backend selection is controlled by USE_FLASH_ATTENTION in sticky_config.
 # tracking_flag only controls whether the TrackingManager is active inside
@@ -54,13 +50,10 @@ class STICKYLlamaForCausalLM(LlamaForCausalLM):
 
     # NOTE: _get_cache() is intentionally NOT overridden.
     #
-    # Many HF versions never call _get_cache(). Instead, LlamaModel.forward()
-    # creates a DynamicCache directly when past_key_values is None.
-    # Our attention module works with ANY cache type (DynamicCache, StickyCache)
-    # by reading/writing via the cache.key_cache / cache.value_cache lists.
-    #
-    # If _get_cache IS called by a particular HF version, DynamicCache works
-    # fine; our module updates it in place.
+    # transformers 4.57 LlamaModel.forward() creates a DynamicCache when
+    # past_key_values is None. Our attention module's first writeback
+    # replaces each layer's DynamicLayer with a StickyDynamicLayer that
+    # tracks cumulative position through compression.
 
     def _get_true_global_position(self):
         """Read global_token_counter from layer 0's kv_cache.
